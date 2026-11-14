@@ -371,9 +371,11 @@ function avatarRaw(c, k) {
    SCREEN + EVENTS
    ===================================================================== */
 const screenEl = $("#screen");
+let suppressShowFade = false;
+let modeSwitchTransitioning = false;
 function show(html) {
   clearTimers();
-  screenEl.innerHTML = `<div class="fade-in">${html}</div>`;
+  screenEl.innerHTML = `<div class="${suppressShowFade ? "" : "fade-in"}">${html}</div>`;
   window.scrollTo({ top: 0 });
   const h = screenEl.querySelector("h1, h2");
   if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
@@ -487,8 +489,8 @@ function titleScreen() {
     <h1 class="logo">SOLAR<span>STORM</span></h1>
     <p class="tag">${sr ? "Flight Director · Lunar surface ops" : "Moon Base Survival"}</p>
     <div class="mode-switch" role="radiogroup" aria-label="Choose your level">
-      <button role="radio" aria-checked="${!sr}" data-act="setMode" data-arg="junior">Junior Astronaut<small>Ages 7–12</small></button>
-      <button role="radio" aria-checked="${sr}" data-act="setMode" data-arg="senior">Flight Director<small>Ages 13+</small></button>
+      <button role="radio" aria-checked="${!sr}" data-act="setMode" data-arg="junior" ${!sr ? "disabled" : ""}>Junior Astronaut<small>Ages 7–12</small></button>
+      <button role="radio" aria-checked="${sr}" data-act="setMode" data-arg="senior" ${sr ? "disabled" : ""}>Flight Director<small>Ages 13+</small></button>
     </div>
     <p class="lede">${sr
       ? "A real solar storm, measured by NASA, is inbound for your lunar base. Load a 60 kg cart against the clock, design your shield wall, budget your power and make the go / no-go call. Real data. Real trade-offs. No safe options."
@@ -1921,7 +1923,30 @@ const ACTIONS = {
   },
   nextQ() { Q.i++; Q.pick = null; Q.checked = false; Q.wrongOnce = false; if (Q.i >= L_(LESSONS[Q.id].quiz).length) finishPractice(); else renderQuestion(); },
   hintQ() { const q = L_(LESSONS[Q.id].quiz)[Q.i]; $("#hintbox").innerHTML = `<div class="callout">💡 ${esc(q.why)}</div>`; },
-  setMode(m) { MODE = m === "senior" ? "senior" : "junior"; store.set("mode", MODE); applyMode(); titleScreen(); },
+  setMode(m) {
+    const target = m === "senior" ? "senior" : "junior";
+    if (target === MODE || modeSwitchTransitioning) return;
+    modeSwitchTransitioning = true;
+    const fadeMs = 480;
+    let fader = $("#mode-fader");
+    if (!fader) {
+      fader = document.createElement("div");
+      fader.id = "mode-fader";
+      fader.setAttribute("aria-hidden", "true");
+      document.body.appendChild(fader);
+    }
+    fader.classList.add("on");
+    setTimeout(() => {
+      MODE = target;
+      store.set("mode", MODE);
+      applyMode();
+      suppressShowFade = true;
+      titleScreen();
+      suppressShowFade = false;
+      requestAnimationFrame(() => fader.classList.remove("on"));
+      setTimeout(() => { modeSwitchTransitioning = false; }, fadeMs + 30);
+    }, fadeMs);
+  },
   wallCommit() { const n = $("#wallN"); choose("wall:" + (n ? n.value : 0)); },
   powerCommit() { const g = (id) => { const el = document.getElementById(id); return el && el.checked ? 1 : 0; }; choose(`power:h${g("sysHeat")}r${g("sysRadio")}f${g("sysFreezer")}b${g("sysBatt")}`); },
   quit() {

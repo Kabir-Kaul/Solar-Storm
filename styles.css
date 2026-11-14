@@ -41,6 +41,8 @@ button{font:inherit;color:inherit}
 .term{background:none;border:none;border-bottom:2px dotted var(--teal);color:var(--teal);padding:0;cursor:help;font-weight:800}
 .fade-in{animation:fadeIn .45s ease both}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+#mode-fader{position:fixed;inset:0;z-index:40;background:#000;opacity:0;pointer-events:none;transition:opacity .48s ease}
+#mode-fader.on{opacity:1;pointer-events:auto}
 
 /* ---------- HUD ---------- */
 #hud{position:sticky;top:0;z-index:5;background:rgba(6,10,24,.88);backdrop-filter:blur(8px);border-bottom:2px solid var(--line)}
@@ -222,6 +224,7 @@ body.mode-senior h1,body.mode-senior h2{letter-spacing:-.01em}
 .mode-switch button{border:none;background:var(--panel2);cursor:pointer;padding:.9em 1.1em;border-radius:0;font-family:var(--head);font-weight:600;color:var(--muted);line-height:1.15;text-transform:uppercase;letter-spacing:.06em;border:3px solid transparent}
 .mode-switch button small{display:block;font-family:var(--body);font-weight:700;font-size:.72rem;opacity:.8;letter-spacing:.02em}
 .mode-switch button[aria-checked="true"]{background:var(--sun);color:#2a1400;border-color:#533b10}
+.mode-switch button:disabled{cursor:default}
 body.mode-senior .mode-switch{border-radius:0;border-width:3px}
 body.mode-senior .mode-switch button{border-radius:0;background:var(--panel2);border-color:transparent}
 body.mode-senior .mode-switch button[aria-checked="true"]{background:var(--teal);color:#021018;border-color:#084a58}
