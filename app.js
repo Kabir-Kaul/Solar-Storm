@@ -112,16 +112,46 @@ const ITEMS = [
 
 /* ---------- GLOSSARY ---------- */
 const TERMS = {
-  flare: ["Solar flare", "A giant flash of energy on the Sun. Scientists grade flares by letter: C, M and X. X is the strongest, and an X2 is twice as strong as an X1."],
-  cme: ["CME (coronal mass ejection)", "A huge cloud of the Sun's gas and magnetic field blasted into space. Fast ones reach the Earth and Moon in about 1 to 4 days."],
-  sep: ["Solar particle event", "A shower of super-fast particles from the Sun. They can arrive within hours, and they are the main radiation danger for astronauts during a storm."],
-  dose: ["Radiation dose", "How much radiation a person's body has soaked up. In this game, dose is shown as points from 0 to 100. These are game points, not real science units."],
-  shielding: ["Shielding", "Stuff between you and the radiation. Water and food are full of hydrogen, which is good at slowing down the Sun's particles."],
-  kp: ["Kp index", "A score from 0 to 9 for how much a storm shakes Earth's magnetic field. A 9 is extreme and makes auroras appear far from the poles."],
-  dosimeter: ["Dosimeter", "A small device that measures how much radiation a person has received."],
-  co2: ["CO₂ scrubber", "A filter that pulls carbon dioxide out of the air. You breathe out CO₂ all the time, so in a closed base it builds up unless it is removed."],
-  delay: ["Signal delay", "Radio messages travel at the speed of light. They take about 1.3 seconds to cross the 384,400 km between Earth and the Moon, and about 3 to 22 minutes to reach Mars."],
-  moon: ["Why the Moon is risky", "Earth has a thick atmosphere and a magnetic field that protect us. The Moon has neither, so the Sun's particles hit the surface directly."]
+  flare: {
+    j: ["Solar flare", "A bright burst on the Sun. Big flares can send extra energy and particles our way."],
+    s: ["Solar flare", "A sudden burst of magnetic energy on the Sun. It releases light, X-rays and charged particles. Big flares can be followed by fast particle storms and CMEs."]
+  },
+  cme: {
+    j: ["CME", "A huge cloud of hot gas and magnetic field from the Sun. It can reach the Moon in a day or a few days."],
+    s: ["CME (coronal mass ejection)", "A huge cloud of magnetized plasma blasted from the Sun. Fast ones can reach Earth or the Moon in about 1 to 4 days."]
+  },
+  sep: {
+    j: ["Solar particle event", "A stream of fast particles from the Sun. These can arrive before the big cloud and can be dangerous."],
+    s: ["Solar particle event", "A burst of energetic protons and other particles accelerated by a flare or CME shock. They can arrive in minutes to hours and are a major radiation hazard."]
+  },
+  dose: {
+    j: ["Radiation dose", "How much radiation your body gets. In the game, more dose means more risk."],
+    s: ["Radiation dose", "How much ionizing radiation a person's body absorbs. In the game, it is shown as a dose score from 0 to 100 for easier play."]
+  },
+  shielding: {
+    j: ["Shielding", "Anything between you and the particles. Water and food are good shields."],
+    s: ["Shielding", "Material between you and the radiation. Hydrogen-rich materials like water, food and polyethylene slow particles down best."]
+  },
+  kp: {
+    j: ["Kp index", "A number that tells how strong a geomagnetic storm is at Earth."],
+    s: ["Kp index", "A 0–9 scale for how strongly Earth's magnetic field is disturbed by a storm. A high Kp means a bigger geomagnetic storm."]
+  },
+  dosimeter: {
+    j: ["Dosimeter", "A small tool that measures radiation."],
+    s: ["Dosimeter", "A sensor worn to measure how much radiation a person receives."]
+  },
+  co2: {
+    j: ["CO₂ scrubber", "A filter that removes carbon dioxide from the air in a closed base."],
+    s: ["CO₂ scrubber", "A device that removes carbon dioxide from the air. In a closed habitat, it keeps the air breathable and prevents CO₂ buildup."]
+  },
+  delay: {
+    j: ["Signal delay", "Messages take time to travel through space. The Moon is about 1.3 seconds away."],
+    s: ["Signal delay", "Radio signals travel at the speed of light. The Moon is about 1.3 seconds away, while Mars can be 3 to 22 minutes away one way."]
+  },
+  moon: {
+    j: ["Why the Moon is risky", "The Moon has no air and no big magnetic field, so solar particles hit the surface directly."],
+    s: ["Why the Moon is risky", "Earth has an atmosphere and a magnetic field that help protect it. The Moon has neither, so the surface is directly exposed to solar flares, CMEs and particle storms."]
+  }
 };
 const T = (key, text) => `<button class="term" data-act="term" data-arg="${key}">${text}</button>`;
 
@@ -224,8 +254,18 @@ const Sound = {
   blip() { this.tone(1500, 0.05, "sine", 0.035); },
   seal() { this.tone(160, 0.35, "sawtooth", 0.05); this.tone(90, 0.4, "sine", 0.08, 0.05); }
 };
+function speakerSvg(on) {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 10h3l5-4v12l-5-4H5v-4Z" fill="${on ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M17.5 8.5a5 5 0 0 1 0 7M19.8 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      ${on ? "" : "<path d=\"M7 7l10 10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"/>"}
+    </svg>`;
+}
 function syncSoundBtn() {
-  const b = $("#sound-toggle"); b.textContent = Sound.on ? "🔊" : "🔇";
+  const b = $("#sound-toggle");
+  if (!b) return;
+  b.innerHTML = speakerSvg(Sound.on);
   b.setAttribute("aria-label", Sound.on ? "Turn sound off" : "Turn sound on");
 }
 
@@ -443,23 +483,23 @@ function titleScreen() {
   show(`
   ${moonscape()}
   <section class="title-screen">
-    <div class="badge">NASA Space Apps 2026 · Junior Astronaut Mission Trainer</div>
+    <div class="badge">NASA Space Apps 2026 · Mission Trainer</div>
     <h1 class="logo">SOLAR<span>STORM</span></h1>
     <p class="tag">${sr ? "Flight Director · Lunar surface ops" : "Moon Base Survival"}</p>
     <div class="mode-switch" role="radiogroup" aria-label="Choose your level">
-      <button role="radio" aria-checked="${!sr}" data-act="setMode" data-arg="junior">🧑‍🚀 Junior Astronaut<small>Ages 7–12</small></button>
-      <button role="radio" aria-checked="${sr}" data-act="setMode" data-arg="senior">🛰️ Flight Director<small>Ages 13+</small></button>
+      <button role="radio" aria-checked="${!sr}" data-act="setMode" data-arg="junior">Junior Astronaut<small>Ages 7–12</small></button>
+      <button role="radio" aria-checked="${sr}" data-act="setMode" data-arg="senior">Flight Director<small>Ages 13+</small></button>
     </div>
     <p class="lede">${sr
       ? "A real solar storm, measured by NASA, is inbound for your lunar base. Load a 60 kg cart against the clock, design your shield wall, budget your power and make the go / no-go call. Real data. Real trade-offs. No safe options."
       : "A <b>real</b> storm from the Sun is heading for your Moon base. You have seconds to grab supplies and days to keep your crew safe. <b>Every choice costs something.</b>"}</p>
     <div class="btn-row">
-      <button class="btn big primary" data-act="intro">▶ ${sr ? "Start mission" : "Start Mission"}</button>
-      <button class="btn big" data-act="academy">🎓 Space Academy</button>
+      <button class="btn big primary" data-act="intro">${sr ? "Start mission" : "Start Mission"}</button>
+      <button class="btn big" data-act="academy">Space Academy</button>
     </div>
     <div class="btn-row">
-      <button class="btn" data-act="sources">🔬 Data & sources</button>
-      <button class="btn" data-act="glossary">📖 Space words</button>
+      <button class="btn" data-act="sources">Data & sources</button>
+      <button class="btn" data-act="glossary">${sr ? "Space vocab" : "Space words"}</button>
     </div>
     <p class="credit">Made by Team Lychee · Storm data from NASA's DONKI space weather database</p>
   </section>`);
@@ -488,7 +528,7 @@ function introScreen() {
 function stormCard(s) {
   const d = derive(s), best = store.get("best:" + s.id, null);
   return `<button class="storm-card" data-act="pick" data-arg="${s.id}">
-    <div><span class="pill ${tagClass(d.label)}">${d.label}</span> <span class="pill">Real storm · ${esc(s.dateText)}</span></div>
+    <div><span class="pill ${tagClass(d.label)}">${d.label}</span> <span class="pill">${esc(s.dateText)}</span></div>
     <h3>${esc(s.name)}</h3>
     <div class="small">${esc(s.teaser)}</div>
     <div class="stats">
@@ -512,8 +552,8 @@ function selectScreen() {
       <button class="storm-card" data-act="live">
         <div><span class="pill tag-live">Live</span> <span class="pill">The Sun right now</span></div>
         <h3>Today's Sun</h3>
-        <div class="small">Load the biggest storm from the last 30 days, straight from NASA's DONKI database. Some weeks are quiet!</div>
-        <div class="stats"><span class="chip">Needs internet</span><span class="chip">Changes every week</span></div>
+        <div class="small">Loads the biggest storm from the last 30 days, straight from NASA's DONKI database. Some weeks are quiet.</div>
+        <div class="stats"><span class="chip">Live stats</span><span class="chip">Changes every week</span></div>
       </button>
     </div>
     <div class="btn-row"><button class="btn" data-act="title">Back to title</button></div>
@@ -1097,7 +1137,7 @@ function endingScreen() {
     <div class="small muted">${stars.map(s => (s.on ? "✅ " : "⬜ ") + s.t).join(" · ")}</div>
     <div class="crewrow" style="max-width:820px;margin:16px auto">${S.crew.map(c => { const b = band(c.dose); return `<div class="crewbox">${avatar(c, 46, "ring-" + b.k, c.dose / 100)}<div><div class="nm">${esc(c.id === "you" ? "You" : c.name.split(" ")[0])}</div><div class="dose band-${b.k}">☢ ${doseLabel(c.dose)} · ${b.t}</div></div></div>`; }).join("")}</div>
     <p class="muted small">Final dose numbers (from the base's records). ❤️ Crew health: ${Math.round(S.health)} · 📦 Food & water left: ${avail()}</p>
-    <div class="btn-row"><button class="btn big primary" data-act="debrief">📋 Mission debrief ▶</button></div>
+    <div class="btn-row"><button class="btn big primary" data-act="debrief">Mission debrief ▶</button></div>
   </section>`);
 }
 
@@ -1182,15 +1222,15 @@ function debriefScreen() {
     ${doseChart()}
     <h2>Your choices vs. real life</h2>
     <div class="debrief-list">
-      ${debriefItems().map(i => `<div class="db-item"><div><h4>${i.h} · You</h4><div>${i.you}</div></div><div class="real"><h4>🌍 Real life</h4><div>${i.real}</div>${i.ls ? `<button class="dlink" data-act="lesson" data-arg="${i.ls}">🎓 Learn more in Space Academy</button>` : ""}</div></div>`).join("")}
+      ${debriefItems().map(i => `<div class="db-item"><div><h4>${i.h} · You</h4><div>${i.you}</div></div><div class="real"><h4>Real life</h4><div>${i.real}</div>${i.ls ? `<button class="dlink" data-act="lesson" data-arg="${i.ls}">Learn more in Space Academy</button>` : ""}</div></div>`).join("")}
     </div>
     <div class="panel" style="margin-top:16px">
       <h3>Try it a different way</h3>
       <p>Same storm, different plan? Try packing different items, or build a different wall, and see how the ending changes. That's how real crews train: they practice the same emergency again and again.</p>
       <div class="btn-row">
         <button class="btn big primary" data-act="replay">🔁 Replay this storm</button>
-        <button class="btn" data-act="select">☀ Try a different storm</button>
-        <button class="btn" data-act="sources">🔬 Data & sources</button>
+        <button class="btn" data-act="select">Try a different storm</button>
+        <button class="btn" data-act="sources">Data & sources</button>
       </div>
     </div>
   </section>`);
@@ -1227,11 +1267,12 @@ function sourcesScreen() {
     <div class="panel"><ul class="src-list">
       ${Object.values(LINKS).map(x => `<li><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.label)}</a></li>`).join("")}
     </ul></div>
-    <div class="btn-row"><button class="btn big primary" data-act="academy">🎓 Space Academy</button><button class="btn" data-act="title">Back to title</button><button class="btn" data-act="glossary">📖 Space Words</button></div>
+    <div class="btn-row"><button class="btn big primary" data-act="academy">Space Academy</button><button class="btn" data-act="title">Back to title</button><button class="btn" data-act="glossary">${SR() ? "Space vocab" : "Space words"}</button></div>
   </section>`);
 }
 function glossary() {
-  openModal(`<h2 id="modal-title">📖 Space words</h2><dl class="gl">${Object.values(TERMS).map(t => `<dt>${t[0]}</dt><dd>${t[1]}</dd>`).join("")}</dl>`);
+  const entries = Object.values(TERMS).map(t => SR() ? t.s : t.j);
+  openModal(`<h2 id="modal-title">${SR() ? "Space vocab" : "Space words"}</h2><dl class="gl">${entries.map(t => `<dt>${t[0]}</dt><dd>${t[1]}</dd>`).join("")}</dl>`);
 }
 
 /* =====================================================================
@@ -1249,7 +1290,7 @@ async function donki(endpoint, start, end, extra = "") {
 }
 const flareRank = (c = "") => { const i = "ABCMX".indexOf((c[0] || "").toUpperCase()); return i < 0 ? -1 : i * 100 + (parseFloat(c.slice(1)) || 0); };
 async function loadLive() {
-  show(`<section class="interlude"><div class="big-ic">🛰️</div><h2>Contacting NASA…</h2><p class="story">Downloading the last 30 days of space weather from NASA's DONKI database.</p></section>`);
+  show(`<section class="interlude"><div class="big-ic">NASA</div><h2>Contacting NASA…</h2><p class="story">Downloading the last 30 days of space weather from NASA's DONKI database.</p></section>`);
   try {
     const end = new Date(), start = new Date(end.getTime() - 30 * 86400000);
     const day = (d) => d.toISOString().slice(0, 10);
@@ -1298,10 +1339,10 @@ async function loadLive() {
    version of every lesson, styled to match their game.
    ===================================================================== */
 const UNITS = [
-  { id: "u1", icon: "☀️", title: { j: "The Sun's storms", s: "Unit 1 · Space weather physics" }, lessons: ["flares", "cmes", "seps"] },
-  { id: "u2", icon: "🛡️", title: { j: "Keeping astronauts safe", s: "Unit 2 · Radiation protection" }, lessons: ["dose", "shielding"] },
-  { id: "u3", icon: "🏠", title: { j: "Running a Moon base", s: "Unit 3 · Habitat systems" }, lessons: ["power", "comms"] },
-  { id: "u4", icon: "🛰️", title: { j: "Watching the Sun", s: "Unit 4 · Forecasting & data" }, lessons: ["donki"] }
+  { id: "u1", icon: "", title: { j: "The Sun's storms", s: "Unit 1 · Space weather physics" }, lessons: ["flares", "cmes", "seps"] },
+  { id: "u2", icon: "", title: { j: "Keeping astronauts safe", s: "Unit 2 · Radiation protection" }, lessons: ["dose", "shielding"] },
+  { id: "u3", icon: "", title: { j: "Running a Moon base", s: "Unit 3 · Habitat systems" }, lessons: ["power", "comms"] },
+  { id: "u4", icon: "", title: { j: "Watching the Sun", s: "Unit 4 · Forecasting & data" }, lessons: ["donki"] }
 ];
 const ORDER = UNITS.flatMap(u => u.lessons);
 const unitOf = (id) => UNITS.find(u => u.lessons.includes(id));
@@ -1311,7 +1352,7 @@ const src = (url, label) => `<a href="${url}" target="_blank" rel="noopener">${l
 const LESSONS = {
   /* ---------------- UNIT 1 ---------------- */
   flares: {
-    icon: "⚡", mins: { j: 3, s: 5 },
+    icon: "", mins: { j: 3, s: 5 },
     title: { j: "Solar flares: the Sun's flashes", s: "Solar flares and the GOES X-ray scale" },
     learn: {
       j: `<p>A <b>solar flare</b> is a sudden, super-bright flash of energy on the Sun. It happens when twisted magnetic fields near a sunspot snap and release energy all at once.</p>
@@ -1319,7 +1360,7 @@ const LESSONS = {
         <p>Scientists sort flares by letter: <b>A, B, C, M and X</b>. Each letter is <b>10 times stronger</b> than the one before it. X flares are the biggest of all.</p>
         <p>The number after the letter tells you more. An <b>X2</b> flare is twice as strong as an <b>X1</b>.</p>
         [[widget]]
-        <div class="callout real">🌞 <b>Real storm:</b> On October 3, 2024, the Sun fired an <b>X9.0</b> flare, the strongest of the current solar cycle at that time.</div>
+        <div class="callout real"><b>Real storm:</b> On October 3, 2024, the Sun fired an <b>X9.0</b> flare, the strongest of the current solar cycle at that time.</div>
         <h3>Why flares matter to astronauts</h3>
         <p>The light from a flare reaches us in about 8 minutes. Big flares can also launch storm clouds and showers of fast particles. You'll learn about those next!</p>`,
       s: `<p>A <b>solar flare</b> is a rapid release of magnetic energy in the solar atmosphere, usually above an active region (a sunspot group). It brightens across the spectrum, from radio waves to X-rays.</p>
@@ -1328,7 +1369,7 @@ const LESSONS = {
         <p class="mono">A = 10⁻⁸ · B = 10⁻⁷ · C = 10⁻⁶ · M = 10⁻⁵ · X = 10⁻⁴ W/m²</p>
         <p>The number is a multiplier, so an <b>M5.0</b> flare peaks at 5 × 10⁻⁵ W/m², which is half the flux of an <b>X1.0</b>.</p>
         [[widget]]
-        <div class="callout real">🌞 <b>Real data:</b> The <b>X9.0</b> flare of October 3, 2024 (region 3842) was the strongest of Solar Cycle 25 at the time. The X1.8 flare of October 9, 2024 had a much smaller peak, but it launched a fast, Earth-directed CME and a particle event. Flare class alone doesn't tell you how dangerous a storm will be.</div>
+        <div class="callout real"><b>Real data:</b> The <b>X9.0</b> flare of October 3, 2024 (region 3842) was the strongest of Solar Cycle 25 at the time. The X1.8 flare of October 9, 2024 had a much smaller peak, but it launched a fast, Earth-directed CME and a particle event. Flare class alone doesn't tell you how dangerous a storm will be.</div>
         <h3>Why the flash itself isn't the threat you dodge</h3>
         <p>Flare photons travel at light speed, so they arrive about 8.3 minutes after the eruption, along with the first image of it. There's no warning window. Crews shelter from what comes <i>after</i>: energetic particles (minutes to hours) and the CME (about 1–4 days).</p>`
     },
@@ -1348,14 +1389,14 @@ const LESSONS = {
     widget: "flare", play: "Bigger flares mean more dose per day in the shelter."
   },
   cmes: {
-    icon: "💨", mins: { j: 3, s: 6 },
+    icon: "", mins: { j: 3, s: 6 },
     title: { j: "CMEs: storm clouds from the Sun", s: "CMEs: speed, direction and transit time" },
     learn: {
       j: `<p>Sometimes the Sun blasts a gigantic cloud of hot gas and magnetic field into space. It's called a <b>coronal mass ejection</b>, or <b>CME</b> for short.</p>
         <h3>How fast do they go?</h3>
         <p>CMEs can zoom through space at more than <b>1,000 kilometers every second</b>. Even that fast, it takes them about <b>1 to 4 days</b> to reach the Earth and the Moon, because the Sun is about 150 million km away.</p>
         [[widget]]
-        <div class="callout real">🎯 <b>Real storm:</b> The CME on October 9, 2024 left the Sun at about 1,509 km/s and hit Earth about 36½ hours later.</div>
+        <div class="callout real"><b>Real storm:</b> The CME on October 9, 2024 left the Sun at about 1,509 km/s and hit Earth about 36½ hours later.</div>
         <h3>Faster storm = less warning</h3>
         <p>When a fast CME is headed your way, you have less time to get ready. That's why the scramble in the game is shorter for faster storms!</p>`,
       s: `<p>A <b>coronal mass ejection (CME)</b> is a large eruption of magnetized plasma from the corona. Forecasters at NASA's Moon to Mars Space Weather Analysis Office measure each CME's <b>speed</b>, <b>direction</b> and <b>half-angle</b> (angular width) from coronagraph images and log them in DONKI.</p>
@@ -1364,7 +1405,7 @@ const LESSONS = {
         [[widget]]
         <h3>Reality check: CMEs slow down</h3>
         <p>The October 9, 2024 CME was measured at about 1,509 km/s near the Sun. Constant speed predicts about 27.6 h. It actually arrived after about <b>36.6 h</b>. Drag from the slower solar wind decelerated it. NASA's forecast notes expected it to reach Earth at only 600–700 km/s. Real forecasts use models like WSA-ENLIL for this reason.</p>
-        <div class="callout">🧭 <b>Halo CMEs</b> look like a ring around the Sun in coronagraph images because they're coming almost straight toward (or away from) the observer. The Oct 9 event was a "bright fast halo CME", which is bad news for anything near Earth and the Moon.</div>
+        <div class="callout"><b>Halo CMEs</b> look like a ring around the Sun in coronagraph images because they're coming almost straight toward (or away from) the observer. The Oct 9 event was a "bright fast halo CME", which is bad news for anything near Earth and the Moon.</div>
         <p class="small muted">Source: ${src("https://webtools.ccmc.gsfc.nasa.gov/CMEscoreboard/prediction/detail/3670", "NASA CCMC CME Scoreboard notes for 2024-10-09")}</p>`
     },
     quiz: {
@@ -1382,7 +1423,7 @@ const LESSONS = {
     widget: "cme", play: "The CME speed sets your scramble timer."
   },
   seps: {
-    icon: "☢️", mins: { j: 3, s: 5 },
+    icon: "", mins: { j: 3, s: 5 },
     title: { j: "Particle storms and why the Moon is risky", s: "Solar particle events and the lunar surface" },
     learn: {
       j: `<p>Big solar storms can also fire out a shower of tiny, super-fast particles. This is called a <b>solar particle event</b>. These particles are the main <b>radiation</b> danger for astronauts.</p>
@@ -1484,7 +1525,7 @@ const LESSONS = {
   },
   /* ---------------- UNIT 3 ---------------- */
   power: {
-    icon: "⚡", mins: { j: 3, s: 5 },
+    icon: "", mins: { j: 3, s: 5 },
     title: { j: "Power and air: keeping the base alive", s: "Power budgets and life support" },
     learn: {
       j: `<p>A Moon base needs electricity for everything: making clean air, heating, the radio to Earth, and science experiments.</p>
@@ -1493,14 +1534,14 @@ const LESSONS = {
         [[widget]]
         <h3>The air problem: CO₂</h3>
         <p>Every time you breathe out, you add <b>carbon dioxide (CO₂)</b> to the air. In a closed base, a <b>scrubber</b> filter removes it. When the filter fills up, you need a spare.</p>
-        <div class="callout real">🚀 <b>True story: Apollo 13 (1970).</b> CO₂ built up in the spacecraft. The spare filters were the wrong shape: square ones that didn't fit the round holes! Engineers on Earth invented a fix from duct tape, plastic bags and cardboard, and the crew built it and made it home safely.</div>`,
+        <div class="callout real"><b>True story: Apollo 13 (1970).</b> CO₂ built up in the spacecraft. The spare filters were the wrong shape: square ones that didn't fit the round holes! Engineers on Earth invented a fix from duct tape, plastic bags and cardboard, and the crew built it and made it home safely.</div>`,
       s: `<p>Habitats run on a <b>power budget</b>: available energy versus each system's draw. Engineers classify loads ahead of time. Life support is critical. Thermal control, comms and payloads are shed in a set order during an emergency.</p>
         <h3>Endurance math</h3>
         <p class="mono">days of endurance = reserve ÷ total draw per day</p>
         [[widget]]
         <h3>Life support and CO₂</h3>
         <p>Lithium hydroxide (LiOH) canisters absorb CO₂ chemically and become saturated. On <b>Apollo 13</b>, the lunar module's canisters were sized for two people for about 30 hours. Three astronauts needed it as a lifeboat for days. The command module's spares were square and didn't fit the LM's round sockets. Mission Control designed an adapter from a suit hose, plastic bags, cardboard and duct tape.</p>
-        <div class="callout">🔧 The lesson engineers took from it: standardize interfaces, and carry spares that actually fit. In the game, packing the spare filters turns a crisis into a two-minute swap.</div>
+        <div class="callout">The lesson engineers took from it: standardize interfaces, and carry spares that actually fit. In the game, packing the spare filters turns a crisis into a two-minute swap.</div>
         <p class="small muted">Source: ${src(LINKS.apollo13.url, "NASA Apollo Flight Journal: building the CO₂ adapter")}</p>`
     },
     quiz: {
@@ -1517,13 +1558,13 @@ const LESSONS = {
     widget: "power", play: "Day 2 is a power crunch."
   },
   comms: {
-    icon: "📡", mins: { j: 2, s: 4 },
+    icon: "", mins: { j: 2, s: 4 },
     title: { j: "Talking to Earth", s: "Light-time delay and crew autonomy" },
     learn: {
       j: `<p>Radio messages travel at the <b>speed of light</b>, which is about 300,000 km every second. That's super fast, but space is super big!</p>
         [[widget]]
         <p>A message to the Moon takes about <b>1.3 seconds</b>. A message to Mars takes about <b>3 to 22 minutes</b>, depending on where the planets are.</p>
-        <div class="callout">🤔 Imagine asking Mission Control for help on Mars, then waiting up to 44 minutes for the answer! Future Mars crews will have to make big decisions on their own.</div>`,
+        <div class="callout">Imagine asking Mission Control for help on Mars, then waiting up to 44 minutes for the answer! Future Mars crews will have to make big decisions on their own.</div>`,
       s: `<p>Signals travel at <i>c</i> ≈ 299,792 km/s. One-way light time is simply distance ÷ <i>c</i>.</p>
         <p class="mono">Moon: 384,400 km → 1.28 s one way · 2.6 s round trip</p>
         [[widget]]
@@ -1544,7 +1585,7 @@ const LESSONS = {
   },
   /* ---------------- UNIT 4 ---------------- */
   donki: {
-    icon: "🛰️", mins: { j: 3, s: 6 },
+    icon: "", mins: { j: 3, s: 6 },
     title: { j: "How NASA watches the Sun", s: "DONKI and how this game uses real data" },
     learn: {
       j: `<p>NASA has a team called the <b>Moon to Mars Space Weather Analysis Office</b>. Their job is to watch the Sun every day and warn missions when a storm is coming.</p>
@@ -1580,11 +1621,11 @@ const WIDGETS = {
   flare: {
     html() {
       return SR()
-        ? `<div class="widget" data-wid="flare"><h4>🔆 Flare class calculator</h4>
+        ? `<div class="widget" data-wid="flare"><h4>Flare class calculator</h4>
             <label>Class letter <input type="range" min="0" max="4" value="3" data-w="flare" class="w-cls" aria-label="Flare class letter"></label>
             <label>Multiplier <input type="range" min="10" max="99" value="50" data-w="flare" class="w-mag" aria-label="Flare multiplier"></label>
             <div class="readout w-out"></div><div class="w-bar"></div></div>`
-        : `<div class="widget" data-wid="flare"><h4>🔆 Try it: change the flare's letter</h4>
+        : `<div class="widget" data-wid="flare"><h4>Try it: change the flare's letter</h4>
             <input type="range" min="0" max="2" value="0" data-w="flare" class="w-cls" aria-label="Flare letter: C, M or X">
             <div class="readout w-out"></div><div class="w-bar" style="display:flex;flex-wrap:wrap;gap:3px;margin-top:8px"></div></div>`;
     },
@@ -1605,7 +1646,7 @@ const WIDGETS = {
   },
   cme: {
     html() {
-      return `<div class="widget" data-wid="cme"><h4>${SR() ? "🧮 Transit time calculator (constant speed)" : "🏎️ Try it: how fast is the storm cloud?"}</h4>
+      return `<div class="widget" data-wid="cme"><h4>${SR() ? "Transit time calculator (constant speed)" : "Try it: how fast is the storm cloud?"}</h4>
         <input type="range" min="300" max="3000" step="10" value="1509" data-w="cme" class="w-v" aria-label="CME speed in km per second">
         <div class="readout w-out"></div><div class="small muted w-x"></div></div>`;
     },
@@ -1640,12 +1681,12 @@ const WIDGETS = {
   },
   dose: {
     html() {
-      if (!SR()) return `<div class="widget" data-wid="dose"><h4>🪣 Try it: fill the dose bucket</h4>
+      if (!SR()) return `<div class="widget" data-wid="dose"><h4>Try it: fill the dose bucket</h4>
         <label>Days in a storm with a thin wall <input type="range" min="0" max="5" value="1" data-w="dose" class="w-d" aria-label="Days with thin wall"></label>
         <label>Wall: <input type="range" min="0" max="1" value="0" data-w="dose" class="w-t" aria-label="Thin or thick wall"></label>
         <div class="readout w-out"></div><div class="progressbar" style="height:22px;margin-top:8px"><i class="w-fill" style="width:0"></i></div></div>`;
       const rows = [["Chest X-ray", 0.1], ["NY–London round-trip flight", 0.1], ["Large SPE on the lunar surface (est.)", 100], ["NASA per-SPE limit", 250], ["NASA career limit", 600]];
-      return `<div class="widget"><h4>📊 Dose comparison (mSv, log scale)</h4>
+      return `<div class="widget"><h4>Dose comparison (mSv, log scale)</h4>
         ${rows.map(([n, v]) => `<div class="small" style="margin-top:6px">${n} <span class="mono muted">${v} mSv</span></div><div class="progressbar"><i style="width:${clamp((Math.log10(v) + 2) / (Math.log10(600) + 2) * 100, 3, 100)}%"></i></div>`).join("")}
         <p class="small muted" style="margin-top:8px">Sources: NASA OCHMO technical brief (limits); NASA NTRS radiation overview (X-ray, flight and lunar SPE estimates).</p></div>`;
     },
@@ -1658,7 +1699,7 @@ const WIDGETS = {
   },
   shield: {
     html() {
-      return `<div class="widget" data-wid="shield"><h4>${SR() ? "🧱 Attenuation model: transmission = e^(−0.16n)" : "🧱 Try it: stack bags in the wall"}</h4>
+      return `<div class="widget" data-wid="shield"><h4>${SR() ? "Attenuation model: transmission = e^(−0.16n)" : "Try it: stack bags in the wall"}</h4>
         <input type="range" min="0" max="12" value="3" data-w="shield" class="w-n" aria-label="Units in the wall">
         <div class="readout w-out"></div><div class="w-dots" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px"></div></div>`;
     },
@@ -1676,7 +1717,7 @@ const WIDGETS = {
   power: {
     html() {
       const cap = SR() ? 50 : 60;
-      return `<div class="widget eng" data-wid="power" data-cap="${cap}"><h4>${SR() ? `🔋 Endurance: reserve ${cap}%` : `🔋 Try it: you have ${cap}% power`}</h4>
+      return `<div class="widget eng" data-wid="power" data-cap="${cap}"><h4>${SR() ? `Endurance: reserve ${cap}%` : `Try it: you have ${cap}% power`}</h4>
         <label class="sys"><input type="checkbox" checked disabled> Air system <span class="w">6%/day</span></label>
         <label class="sys"><input type="checkbox" checked data-w="power" class="w-h"> Heaters <span class="w">4%/day</span></label>
         <label class="sys"><input type="checkbox" checked data-w="power" class="w-r"> Radio <span class="w">3%/day</span></label>
@@ -1692,9 +1733,9 @@ const WIDGETS = {
   comms: {
     html() {
       return SR()
-        ? `<div class="widget" data-wid="comms"><h4>📡 Light-time calculator</h4>
+        ? `<div class="widget" data-wid="comms"><h4>Light-time calculator</h4>
             <input type="range" min="0" max="100" value="0" data-w="comms" class="w-d" aria-label="Distance from Earth"><div class="readout w-out"></div></div>`
-        : `<div class="widget" data-wid="comms"><h4>📡 Try it: where are you?</h4>
+        : `<div class="widget" data-wid="comms"><h4>Try it: where are you?</h4>
             <input type="range" min="0" max="2" value="0" data-w="comms" class="w-d" aria-label="Moon, Mars close, or Mars far"><div class="readout w-out"></div></div>`;
     },
     update(r) {
@@ -1711,7 +1752,7 @@ const WIDGETS = {
   },
   donki: {
     html() {
-      return `<div class="widget" data-wid="donki"><h4>${SR() ? "🛰️ Record → game parameters" : "🛰️ Try it: pick a real storm"}</h4>
+      return `<div class="widget" data-wid="donki"><h4>${SR() ? "Record → game parameters" : "Try it: pick a real storm"}</h4>
         <input type="range" min="0" max="${STORMS.length - 1}" value="1" data-w="donki" class="w-s" aria-label="Pick a storm"><div class="w-out"></div></div>`;
     },
     update(r) {
@@ -1753,10 +1794,10 @@ function academyScreen() {
     <div class="ac-top"><div class="crumbs"><button data-act="title">Home</button> › Space Academy</div><div class="points">${ptsLabel(totalPoints())}</div></div>
     <div class="panel ac-hero">
       <div>
-        <h1>🎓 Space Academy</h1>
+        <h1>Space Academy</h1>
         <p class="story">${SR()
           ? "The physics, engineering and data behind every decision in the mission. Each lesson has a short article, an interactive model and practice problems. Master all eight to earn your Flight Director certification."
-          : "Learn the real science behind the game! Each lesson has a short story, something to try, and practice questions. Master all 8 lessons to earn your Junior Astronaut wings! 🪽"}</p>
+          : "Learn the real science behind the game! Each lesson has a short story, something to try, and practice questions. Master all 8 lessons to earn your Junior Astronaut wings."}</p>
         <div class="btn-row" style="justify-content:flex-start"><button class="btn big primary" data-act="lesson" data-arg="${next}">${mastered ? "Continue" : "Start learning"}: ${esc(L_(LESSONS[next].title))} ▶</button></div>
       </div>
       <div>
@@ -1764,7 +1805,7 @@ function academyScreen() {
         <div class="readout" style="font-family:var(--head);font-size:2rem">${mastered} / ${ORDER.length} <span class="small muted">lessons mastered</span></div>
         <div class="progressbar"><i style="width:${mastered / ORDER.length * 100}%"></i></div>
         <div class="small muted" style="margin-top:8px"><span class="status" style="display:inline-grid;vertical-align:middle;width:16px;height:16px"></span> not started · <span class="status read" style="display:inline-grid;vertical-align:middle;width:16px;height:16px"></span> in progress · <span class="status mastered" style="display:inline-grid;vertical-align:middle;width:16px;height:16px"></span> mastered</div>
-        ${mastered === ORDER.length ? `<div class="callout real" style="margin-top:10px">${SR() ? "🏅 Flight Director certified. Go fly the Extreme storm." : "🪽 You earned your Junior Astronaut wings!"}</div>` : ""}
+        ${mastered === ORDER.length ? `<div class="callout real" style="margin-top:10px">${SR() ? "Flight Director certified. Go fly the Extreme storm." : "You earned your Junior Astronaut wings!"}</div>` : ""}
       </div>
     </div>
     <div class="units">
@@ -1773,7 +1814,7 @@ function academyScreen() {
         ${u.lessons.map(id => `<button class="lesson-row" data-act="lesson" data-arg="${id}">${statusIcon(id)}<span>${LESSONS[id].icon} ${esc(L_(LESSONS[id].title))}<br><span class="small muted">${L_(LESSONS[id].mins)} min · ${L_(LESSONS[id].quiz).length} practice questions</span></span></button>`).join("")}
       </div>`).join("")}
     </div>
-    <div class="btn-row"><button class="btn big primary" data-act="intro">🚀 Play the mission</button><button class="btn" data-act="sources">🔬 Data & sources</button><button class="btn" data-act="title">Home</button></div>
+    <div class="btn-row"><button class="btn big primary" data-act="intro">Play the mission</button><button class="btn" data-act="sources">Data & sources</button><button class="btn" data-act="title">Home</button></div>
   </section>`);
 }
 
@@ -1790,7 +1831,7 @@ function lessonScreen(id, tab = "learn") {
   let body;
   if (tab === "learn") {
     body = `<div class="article">${L_(Ls.learn).replace("[[widget]]", WIDGETS[Ls.widget].html())}
-      <div class="callout">🎮 <b>In the game:</b> ${esc(Ls.play)}</div>
+      <div class="callout"><b>In the game:</b> ${esc(Ls.play)}</div>
       <div class="btn-row" style="justify-content:flex-start"><button class="btn big primary" data-act="startPractice" data-arg="${id}">Practice: ${qs.length} questions ▶</button></div></div>`;
   } else {
     body = `<div class="quiz" id="quiz"></div>`;
@@ -1801,11 +1842,11 @@ function lessonScreen(id, tab = "learn") {
     <div class="lesson-layout">
       <aside class="lesson-side panel" aria-label="Lessons">${side}</aside>
       <div class="panel">
-        <h1>${Ls.icon} ${esc(L_(Ls.title))}</h1>
-        <div class="small muted">${L_(Ls.mins)} min read · ${qs.length} practice questions · ${lessonStatus(id) === "mastered" ? "✅ Mastered" : lessonStatus(id) ? "In progress" : "Not started"}</div>
+        <h1>${esc(L_(Ls.title))}</h1>
+        <div class="small muted">${L_(Ls.mins)} min read · ${qs.length} practice questions · ${lessonStatus(id) === "mastered" ? "Mastered" : lessonStatus(id) ? "In progress" : "Not started"}</div>
         <div class="tabs" role="tablist">
-          <button role="tab" aria-selected="${tab === "learn"}" data-act="lesson" data-arg="${id}">📖 Learn</button>
-          <button role="tab" aria-selected="${tab === "practice"}" data-act="startPractice" data-arg="${id}">✏️ Practice</button>
+          <button role="tab" aria-selected="${tab === "learn"}" data-act="lesson" data-arg="${id}">Learn</button>
+          <button role="tab" aria-selected="${tab === "practice"}" data-act="startPractice" data-arg="${id}">Practice</button>
         </div>
         ${body}
       </div>
@@ -1850,14 +1891,14 @@ function finishPractice() {
   mastered ? Sound.good() : Sound.bad();
   const box = $("#quiz");
   box.innerHTML = `<div class="done-card">
-    <div class="big-emoji">${mastered ? (SR() ? "🏅" : "🌟") : "💪"}</div>
+    <div class="big-emoji">${mastered ? "" : ""}</div>
     <h2>${mastered ? (SR() ? "Lesson mastered" : "You mastered it!") : (SR() ? "Practiced: not mastered yet" : "Good practice!")}</h2>
     <p>${first} of ${qs.length} right on the first try · <b>+${pts} ${SR() ? "XP" : "star points"}</b></p>
     <p class="muted">${mastered ? "" : `Get ${need} or more right on the first try to master this lesson.`}</p>
     <div class="btn-row">
       ${!mastered ? `<button class="btn big primary" data-act="startPractice" data-arg="${id}">Try again</button>` : ""}
       ${next ? `<button class="btn big ${mastered ? "primary" : ""}" data-act="lesson" data-arg="${next}">Up next: ${esc(L_(LESSONS[next].title))} ▶</button>` : `<button class="btn big primary" data-act="academy">Back to Space Academy</button>`}
-      <button class="btn" data-act="intro">🚀 Use it in the mission</button>
+      <button class="btn" data-act="intro">Use it in the mission</button>
     </div></div>`;
 }
 
