@@ -10,7 +10,16 @@
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:var(--body);font-size:22px;line-height:1.35;letter-spacing:.02em}
 body{overflow-x:hidden}
-#sky{position:fixed;inset:0;z-index:0;pointer-events:none}
+/* ---------- BACKGROUND ---------- */
+#sky{
+  position:fixed;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  /* New background handling – keeps the image's aspect ratio
+     and crops it if necessary, rather than stretching it. */
+  background:url('assets/sky.png') center/cover no-repeat;
+}
 #app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
 main#screen{flex:1;width:100%;max-width:1100px;margin:0 auto;padding:20px 18px 60px}
 h1,h2,h3{font-family:var(--head);font-weight:600;line-height:1.15;margin:0 0 .4em}
@@ -306,5 +315,30 @@ body.mode-senior .opt[aria-pressed="true"]{border-color:var(--teal);background:#
 .done-card{text-align:center;max-width:620px;margin:20px auto}
 .big-emoji{font-size:3.6rem}
 .dlink{background:none;border:1px solid var(--line);border-radius:999px;color:var(--teal);cursor:pointer;padding:.2em .8em;font-size:.82rem;margin-top:8px}
+/* 1️⃣  Global text‑wrapping rules – they work for every element in the UI  */
+*,
+*::before,
+*::after {
+  /* Prevent the default `white-space: nowrap` that can appear on buttons etc. */
+  white-space: normal !important;
+  /* Tell the browser that it is allowed to break words at any point */
+  word-break: break-word;          /* (breaks long words) */
+  overflow-wrap: anywhere;         /* (breaks at the best possible point) */
+  hyphens: auto;                   /* (adds hyphenation if supported) */
+}make 
 
+/* 2️⃣  Explicitly set `box-sizing` so padding/margin never inflate widths  */
+html { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: inherit; }
+
+/* 3️⃣  Allow flex items to shrink – prevents overflow when text grows  */
+[class*="flex"], [class*="grid"] {
+  min-width: 0;          /* important for flex‑ or grid‑children */
+  flex-shrink: 1;        /* allow shrinking */
+}
+
+/* 4️⃣  Optional – a tiny visual hint for overflowing content   */
+body > #modal .box {          /* modal content can be scroll‑able */
+  overflow-y: auto;
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
