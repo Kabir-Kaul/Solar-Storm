@@ -88,6 +88,39 @@ const LINKS = {
   doseRules: { label: "Space.com: how Artemis II crews would shelter from a solar storm", url: "https://www.space.com/space-exploration/artemis/how-the-artemis-2-astronauts-could-weather-a-solar-storm-during-their-moon-mission" }
 };
 
+/* ---------- NASA IMAGES (Helioviewer: SDO/AIA sun + SOHO/LASCO coronagraph) ---------- */
+// Helioviewer.org is the NASA/ESA-backed image service for SDO and SOHO. DONKI itself has no pictures.
+const HV = "https://api.helioviewer.org/v2/takeScreenshot/";
+const HV_LAYER = { sun: "[SDO,AIA,AIA,304,1,100]", c2: "[SOHO,LASCO,C2,white-light,1,100]", c3: "[SOHO,LASCO,C3,white-light,1,100]" };
+const HV_SCALE = { sun: 3.6, c2: 19.2, c3: 96 };   // arcsec per pixel at 600 px: full disk / ±6 Rsun / ±30 Rsun
+// When to take each picture for the saved storms (flare peak for the Sun, shortly after launch for the cloud).
+const STORM_IMG_TIMES = {
+  "sep-2023": { sun: "2023-09-14T07:00:00Z", cme: "2023-09-14T08:00:00Z", cam: "c2" },
+  "oct-2024": { sun: "2024-10-09T01:56:00Z", cme: "2024-10-09T02:48:00Z", cam: "c2" },
+  "may-2024": { sun: "2024-05-11T01:23:00Z", cme: "2024-05-11T02:00:00Z", cam: "c2" }
+};
+const isoZ = (d) => { const t = new Date(d); return isNaN(t) ? null : t.toISOString().replace(/\.\d+Z$/, "Z"); };
+function hvUrl(kind, when, px = 600) {
+  const date = isoZ(when); if (!date) return "";
+  const scale = HV_SCALE[kind] * 600 / px;
+  return `${HV}?date=${encodeURIComponent(date)}&imageScale=${scale}&layers=${encodeURIComponent(HV_LAYER[kind])}&x0=0&y0=0&width=${px}&height=${px}&display=true&watermark=true`;
+}
+const imgFail = `onerror="var p=this.closest('.pic');if(p)p.classList.add('failed')"`;
+function stormTimes(s) { return s.imgs || STORM_IMG_TIMES[s.id] || null; }
+function stormThumb(s) {
+  const t = stormTimes(s); if (!t) return "";
+  return `<span class="pic"><img class="storm-thumb" src="${hvUrl("sun", t.sun, 300)}" alt="NASA SDO ultraviolet image of the Sun during the ${esc(s.name)}" loading="lazy" referrerpolicy="no-referrer" ${imgFail}></span>`;
+}
+function stormPics(s) {
+  const t = stormTimes(s); if (!t) return "";
+  const cam = t.cam || "c2";
+  const one = (kind, when, cap) => `<div class="pic"><img src="${hvUrl(kind, when)}" alt="${esc(cap)}" loading="lazy" referrerpolicy="no-referrer" ${imgFail}><div class="cap">${esc(cap)}</div></div>`;
+  return `<div class="pics">
+    ${one("sun", t.sun, "The Sun in ultraviolet light (NASA SDO/AIA 304 Å), " + (isoZ(t.sun) || "").replace("T", " ").replace("Z", " UTC"))}
+    ${one(cam, t.cme, "The storm cloud leaving the Sun (SOHO/LASCO " + cam.toUpperCase() + " coronagraph), " + (isoZ(t.cme) || "").replace("T", " ").replace("Z", " UTC"))}
+  </div><p class="small muted" style="margin-top:-6px">Real images from NASA's SDO and ESA/NASA's SOHO spacecraft, served by <a href="https://helioviewer.org" target="_blank" rel="noopener">Helioviewer.org</a>. Times are close to the event, not exact.</p>`;
+}
+
 /* ---------- CREW ---------- */
 const CREW = [
   { id: "you",   name: "You",           role: "Commander",         color: "#ffb347", trait: "Everyone looks to you to make the call." },
@@ -357,7 +390,7 @@ function shelterScene() {
     ${people}
     ${heatGlow}
     <text x="588" y="44" font-size="12" fill="#8fa0c8" text-anchor="end">radio</text>${radio}
-    <text x="50" y="40" font-size="13" fill="#ffb347" font-family="Fredoka, sans-serif">☀ Sun's particles →</text>
+    <text x="50" y="40" font-size="13" fill="#ffb347" font-family="Fredoka, sans-serif">Sun's particles →</text>
   </svg>`;
 }
 function avatarRaw(c, k) {
@@ -380,14 +413,16 @@ function show(html) {
   const h = screenEl.querySelector("h1, h2");
   if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
   updateHud();
-  if (!screenEl.querySelector('.title-screen')) $("#home-btn").hidden = false;
+  const onTitle = !!screenEl.querySelector('.title-screen');
+  document.body.classList.toggle("on-title", onTitle);
+  if (!onTitle) $("#home-btn").hidden = false;
 }
 document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-act]");
   if (!t || t.disabled) return;
   const fn = ACTIONS[t.dataset.act];
   if (!fn) return;
-  if (!["grab", "sound"].includes(t.dataset.act)) Sound.click();
+  if (!["grab", "sound", "wbPlace", "wbRemove"].includes(t.dataset.act)) Sound.click();
   fn(t.dataset.arg, t);
 });
 document.addEventListener("input", (e) => {
@@ -477,6 +512,30 @@ function updateHud() {
 }
 
 /* =====================================================================
+   HOME PAGE BACKGROUND: NASA's Astronomy Picture of the Day (home page only)
+   ===================================================================== */
+let apodBusy = false, apodReady = false, apodFailAt = 0;
+async function loadApod() {
+  if (apodBusy || apodReady || Date.now() - apodFailAt < 5 * 60000) return;
+  apodBusy = true;
+  try {
+    let c = store.get("apod", null);
+    if (!c || Date.now() - c.at > 6 * 3600 * 1000) {       // reuse for 6 hours so the free key isn't used up
+      const res = await fetch(`https://api.nasa.gov/planetary/apod?thumbs=true&api_key=${encodeURIComponent(NASA_API_KEY)}`);
+      if (!res.ok) throw new Error("apod " + res.status);
+      c = { at: Date.now(), d: await res.json() }; store.set("apod", c);
+    }
+    const d = c.d, img = d.media_type === "image" ? d.url : d.thumbnail_url;   // some days are videos
+    if (!img) throw new Error("no image today");
+    await new Promise((ok, no) => { const i = new Image(); i.onload = ok; i.onerror = no; i.src = img; });
+    $("#apod").style.backgroundImage = `url("${img.replace(/"/g, "%22")}")`;
+    $("#apod-credit").innerHTML = `NASA Astronomy Picture of the Day: <a href="https://apod.nasa.gov/apod/astropix.html" target="_blank" rel="noopener">${esc(d.title || "today's image")}</a>${d.copyright ? " · © " + esc(String(d.copyright).replace(/\s+/g, " ").trim()) : ""}`;
+    document.body.classList.add("has-apod"); apodReady = true;
+  } catch (e) { apodFailAt = Date.now(); }
+  finally { apodBusy = false; }
+}
+
+/* =====================================================================
    SCREENS
    ===================================================================== */
 function titleScreen() {
@@ -505,6 +564,7 @@ function titleScreen() {
     </div>
     <p class="credit">Made by Team Lychee · Storm data from NASA's DONKI space weather database</p>
   </section>`);
+  loadApod();
 }
 function introScreen() {
   show(`
@@ -530,9 +590,11 @@ function introScreen() {
 function stormCard(s) {
   const d = derive(s), best = store.get("best:" + s.id, null);
   return `<button class="storm-card" data-act="pick" data-arg="${s.id}">
-    <div><span class="pill ${tagClass(d.label)}">${d.label}</span> <span class="pill">${esc(s.dateText)}</span></div>
-    <h3>${esc(s.name)}</h3>
-    <div class="small">${esc(s.teaser)}</div>
+    <div class="storm-top">${stormThumb(s)}<div class="storm-info">
+      <div><span class="pill ${tagClass(d.label)}">${d.label}</span> <span class="pill">${esc(s.dateText)}</span></div>
+      <h3>${esc(s.name)}</h3>
+      <div class="small">${esc(s.teaser)}</div>
+    </div></div>
     <div class="stats">
       <span class="chip">☀ Flare: ${esc(s.flareClass || "none listed")}</span>
       <span class="chip">💨 ${fmt(s.cmeSpeed)} km/s</span>
@@ -552,9 +614,11 @@ function selectScreen() {
     <div class="storm-grid">
       ${STORMS.map(stormCard).join("")}
       <button class="storm-card" data-act="live">
-        <div><span class="pill tag-live">Live</span> <span class="pill">The Sun right now</span></div>
-        <h3>Today's Sun</h3>
-        <div class="small">Loads the biggest storm from the last 30 days, straight from NASA's DONKI database. Some weeks are quiet.</div>
+        <div class="storm-top"><span class="pic"><img class="storm-thumb" src="${hvUrl("sun", new Date(Math.floor(Date.now() / 3600000) * 3600000 - 3600000), 300)}" alt="NASA SDO image of the Sun about an hour ago" loading="lazy" referrerpolicy="no-referrer" ${imgFail}></span><div class="storm-info">
+          <div><span class="pill tag-live">Live</span> <span class="pill">The Sun right now</span></div>
+          <h3>Today's Sun</h3>
+          <div class="small">Loads the biggest storm from the last 30 days, straight from NASA's DONKI database. Some weeks are quiet.</div>
+        </div></div>
         <div class="stats"><span class="chip">Live stats</span><span class="chip">Changes every week</span></div>
       </button>
     </div>
@@ -578,6 +642,7 @@ function alertScreen() {
       <div class="fact"><div class="k">${T("sep", "Radiation storm")}</div><div class="v">${s.hasSEP ? "Yes" : "No"}</div><div class="x">${s.hasSEP ? `Shelter for ${d.shelterDays} days, extra dose` : `Shelter for ${d.shelterDays} days`}</div></div>
       <div class="fact"><div class="k">${T("kp", "Effect on Earth")}</div><div class="v">${s.maxKp ? "Kp " + (Math.round(s.maxKp * 10) / 10) : "Unknown"}</div><div class="x">${s.maxKp >= 5 ? "Big enough to cause trouble on Earth" : "A small storm at Earth"}</div></div>
     </div>
+    ${stormPics(s)}
     ${SR() ? `<table class="telemetry"><tr><td>Record</td><td>${esc(s.record || "")}</td></tr>
       <tr><td>CME speed / half-angle</td><td>${fmt(s.cmeSpeed)} km/s / ${s.cmeHalfAngle ?? "n/a"}°</td></tr>
       <tr><td>Flare peak</td><td>${esc(s.flarePeak || "n/a")}</td></tr>
@@ -586,7 +651,7 @@ function alertScreen() {
       <tr><td>Sun → Earth transit</td><td>${esc(s.travelText)}</td></tr>
       <tr><td>Derived: scramble / raw dose / shelter</td><td>${d.scrambleSeconds} s / ${(d.radiationPerDay * d.doseMultiplier).toFixed(1)}% per day / ${d.shelterDays} days</td></tr></table>` : ""}
     <p class="story" style="margin:0 auto">Get to the storm shelter! In real life a crew might get hours of warning. Here you get <b>${d.scrambleSeconds} seconds</b> because this storm cloud is ${s.cmeSpeed >= 1200 ? "<b>very fast</b>" : "fairly fast"}.</p>
-    <div class="btn-row"><button class="btn big danger" data-act="scramble">🏃 Start the scramble!</button></div>
+    <div class="btn-row"><button class="btn big danger" data-act="scramble">Start the scramble!</button></div>
     <p class="muted small">${s.live ? "Live data from NASA DONKI" : "Saved data from a real storm (not live)"} · ${esc(s.record || "")}</p>
   </section>`);
   missionControl($("#mc"), `Shackleton, this is Houston. Our space weather team just spotted ${s.flareClass ? "an " + s.flareClass + " flare and " : ""}a storm cloud heading your way at ${fmt(s.cmeSpeed)} km/s. Grab what you need and get into the shelter. Now!`);
@@ -790,6 +855,7 @@ function dayScreen() {
     <div class="choices">${D.choices}</div>
   </section>`);
   const pp = $("#pproj"); if (pp) pp.innerHTML = powerProjHTML();
+  if (type === "wall" && !SR()) wbInit();
   const mc = $("#mc");
   if (!S.comms) missionControl(mc, "You switched the radio off to save power, so there's no advice from Earth. You're on your own, Commander.", { off: true });
   else if (S.hintBlocked > 0) { S.hintBlocked--; missionControl(mc, "Static… Mission Control is swamped dealing with the storm on Earth. No message got through today.", { off: true }); $("#mc .who").textContent = "Mission Control: busy"; }
@@ -821,6 +887,84 @@ function powerProjHTML() {
     <div>Reserve at storm end<b class="${end >= 10 ? "ok" : end >= 0 ? "meh" : "no"}">${end}%</b><span class="muted small">${end < 0 ? `Blackout on day ${S.dayIdx + lastDay}!` : "No blackout"}</span></div>`;
 }
 
+/* ---------- Junior wall builder: stack supplies, watch the particles get blocked ---------- */
+let WB = null;
+const WB_ICON = { water: "💧", food: "🥫", crate: "📦" };
+const WB_NAME = { water: "water", food: "food", crate: "emergency supply" };
+function wbUnits() {
+  const u = [{ id: "e0", kind: "crate" }, { id: "e1", kind: "crate" }];
+  (S.log.bag || []).forEach(id => {
+    const it = ITEMS.find(x => x.id === id);
+    if (it && it.kind) for (let k = 0; k < it.supplies; k++) u.push({ id: `${id}-${k}`, kind: it.kind });
+  });
+  while (u.length < avail()) u.push({ id: "x" + u.length, kind: "crate" }); // stay in step with the real supplies
+  return u.slice(0, avail());
+}
+function wbHTML() {
+  return `<div class="panel wb" id="wb" style="grid-column:1/-1">
+    <div class="wb-stage">
+      <div class="wb-sun"><span>☀</span><small>Sun</small></div>
+      <div class="wb-rays" id="wbIn" aria-hidden="true">${"<i></i>".repeat(6)}</div>
+      <div class="wb-wallwrap"><div class="wb-wall" id="wbWall"></div><small>Storm wall</small></div>
+      <div class="wb-rays out" id="wbOut" aria-hidden="true"></div>
+      <div class="wb-crew"><div class="wb-crewgrid">${S.crew.map(c => avatar(c, 34, "ring-low", 0)).join("")}</div><small>Crew</small></div>
+    </div>
+    <div class="small muted">Supplies you can stack:</div>
+    <div class="wb-pile" id="wbPile"></div>
+    <div class="wb-meters" id="wbMeters"></div>
+    <div class="wb-say" id="wbSay"></div>
+    <div class="btn-row" style="margin:6px 0 0"><button class="btn big primary" data-act="wallBuilt">Build the wall ▶</button></div>
+  </div>`;
+}
+function wbInit() {
+  const root = $("#wb"); if (!root) return;
+  WB = { units: wbUnits(), placed: [] };
+  root.addEventListener("dragstart", (e) => { const t = e.target.closest("[data-uid]"); if (!t) return; e.dataTransfer.setData("text/plain", t.dataset.uid); e.dataTransfer.effectAllowed = "move"; });
+  root.addEventListener("dragover", (e) => { if (e.target.closest("#wbWall,#wbPile")) e.preventDefault(); });
+  root.addEventListener("drop", (e) => {
+    const zone = e.target.closest("#wbWall,#wbPile"); if (!zone) return; e.preventDefault();
+    const uid = e.dataTransfer.getData("text/plain");
+    zone.id === "wbWall" ? ACTIONS.wbPlace(uid) : ACTIONS.wbRemove(uid);
+  });
+  wbRender();
+}
+function wbRender() {
+  if (!WB || !$("#wbWall")) return;
+  const n = WB.placed.length, cap = Math.max(2, Math.ceil(WB.units.length / 2) * 2), rows = cap / 2;
+  const by = Object.fromEntries(WB.units.map(u => [u.id, u]));
+  let cells = "";
+  for (let r = 0; r < rows; r++) for (let c = 0; c < 2; c++) {
+    const uid = WB.placed[(rows - 1 - r) * 2 + c];   // the wall grows from the floor up
+    cells += uid ? `<button class="wb-cell ${by[uid].kind}" data-act="wbRemove" data-arg="${uid}" data-uid="${uid}" draggable="true" aria-label="Take the ${WB_NAME[by[uid].kind]} block out of the wall">${WB_ICON[by[uid].kind]}</button>`
+                 : `<div class="wb-cell empty" aria-hidden="true"></div>`;
+  }
+  $("#wbWall").innerHTML = cells;
+  const pile = WB.units.filter(u => !WB.placed.includes(u.id));
+  $("#wbPile").innerHTML = pile.length ? pile.map(u => `<button class="wb-cell ${u.kind}" data-act="wbPlace" data-arg="${u.id}" data-uid="${u.id}" draggable="true" aria-label="Add ${WB_NAME[u.kind]} to the wall">${WB_ICON[u.kind]}</button>`).join("")
+                                       : '<span class="muted small">Everything is stacked in the wall!</span>';
+  // live numbers
+  const f = wallFactorFor(n), blocked = Math.round((1 - f) * 100), rate = S.d.radiationPerDay * S.d.doseMultiplier * f;
+  const peak = Math.max(...S.crew.map(c => c.dose + rate * remainingDoseDays() * c.pos));
+  const left = avail() - n, daysFood = Math.floor(left / SUPPLY_USE_PER_DAY), need = S.days.length, b = band(peak);
+  const col = { low: "var(--good)", mid: "var(--warn)", high: "var(--sun2)", crit: "var(--bad)" }[b.k];
+  const fc = daysFood >= need ? "ok" : daysFood >= need - 1 ? "meh" : "no", fcol = { ok: "var(--good)", meh: "var(--warn)", no: "var(--bad)" }[fc];
+  $("#wbOut").innerHTML = "<i></i>".repeat(Math.max(0, Math.round(6 * f)));
+  $("#wbMeters").innerHTML =
+    `<div class="wb-m"><div class="lbl"><span>Particles blocked</span><b>${blocked}%</b></div><div class="bar"><i style="width:${blocked}%;background:var(--teal)"></i></div></div>
+     <div class="wb-m"><div class="lbl"><span>Crew dose forecast${S.has.dosimeters ? "" : " (a guess)"}</span><b class="band-${b.k}">${b.t}</b></div><div class="bar"><i style="width:${clamp(peak, 0, 100)}%;background:${col}"></i></div></div>
+     <div class="wb-m"><div class="lbl"><span>Food & water left</span><b class="${fc}">${daysFood} of ${need} days</b></div><div class="bar"><i style="width:${clamp(daysFood / need * 100, 0, 100)}%;background:${fcol}"></i></div></div>`;
+  // crew reaction
+  let who = "mei", say;
+  if (n === 0) say = "Commander, there's nothing between us and the Sun's particles!";
+  else if (daysFood < need - 1) { who = "jonas"; say = "Whoa, that's a big wall, but there won't be enough to eat. We'll be so hungry!"; }
+  else if (daysFood < need) { who = "amara"; say = "We're about a day short on food and water. Can we spare a block?"; }
+  else if (blocked < 35) { who = "jonas"; say = "It's a start, but I can still feel the radiation. Add more!"; }
+  else if (blocked < 60) { who = "amara"; say = "Getting solid! A few more blocks and we'll be really safe."; }
+  else say = "Now THAT is a wall! And we still have enough to eat. Great job, Commander!";
+  const cr = crew(who);
+  $("#wbSay").innerHTML = `${avatar(cr, 44, "ring-low", 0)}<div><b>${esc(cr.name.split(" ")[0])}:</b> ${say}</div>`;
+}
+
 /* ---------- the five kinds of day ---------- */
 const DAYS = {
   wall() {
@@ -842,14 +986,10 @@ const DAYS = {
     }
     return {
       title: "Build the storm wall",
-      text: `The particles are here! Your shelter is the safest room, but it needs more stuff between you and the Sun. Water and food are full of hydrogen, which makes them great ${T("shielding", "shielding")}. <b>But anything you put in the wall stays locked until the storm ends. You can't eat or drink it.</b> You have <b>${a}</b> units of food and water, and the crew needs ${SUPPLY_USE_PER_DAY} a day for ${S.days.length} days.${S.has.blankets ? " Your blankets will go in the wall too for a little extra protection." : ""}`,
-      hint: big ? "This is a big storm. Build the thickest wall you can, but keep enough to eat and drink."
+      text: `The particles are here! Your shelter is the safest room, but it needs more stuff between you and the Sun. Water and food are full of hydrogen, which makes them great ${T("shielding", "shielding")}. <b>Tap supplies to stack them in the wall. Tap a wall block to take it back.</b> But anything in the wall stays locked until the storm ends, so you can't eat or drink it! The crew needs ${SUPPLY_USE_PER_DAY} a day for ${S.days.length} days.${S.has.blankets ? " Your blankets go in the wall too for a little extra protection." : ""}${S.has.dosimeters ? " Your dosimeters show the weak spots, so every block works extra hard!" : ""}`,
+      hint: big ? "This is a big storm. Build a thick wall, but keep enough to eat and drink."
                 : "This one looks mild. A light wall should be okay. Save your food and water!",
-      choices:
-        choiceBtn("heavy", "A", "Heavy wall", "Stack 6 units of food and water into the wall.", [["plus", "🛡️ Blocks a lot"], ["minus", "📦 6 locked away"]], a < 6 ? "You need at least 6 units of food and water." : "") +
-        choiceBtn("light", "B", "Light wall", "Use just 1 unit. Keep the rest to eat and drink.", [["minus", "🛡️ Blocks a little"], ["plus", "📦 Only 1 locked"]], a < 1 ? "You have nothing left to build with!" : "") +
-        choiceBtn("smart", "C", "Smart wall", "Use the dosimeters to find the weak spots. Only 3 units needed!", [["plus", "🛡️ Blocks a lot"], ["plus", "📦 Only 3 locked"]],
-          !S.has.dosimeters ? "Needs dosimeters (you didn't pack them)." : a < 3 ? "You need at least 3 units." : "")
+      choices: wbHTML()
     };
   },
   power() {
@@ -957,7 +1097,12 @@ function choose(id) {
         const n = parseInt(id.split(":")[1], 10) || 0;
         S.locked = n; S.wallN = n; S.wallFactor = wallFactorFor(n); S.wallBlankets = !!S.has.blankets;
         S.log.wall = n >= 6 ? "heavy" : n <= 1 ? "light" : "medium";
-        (S.wallFactor < 0.5 ? good : info)(`Wall built: ${n} units locked. Transmission is now ${Math.round(S.wallFactor * 100)}% of the unshielded rate.`);
+        if (SR()) (S.wallFactor < 0.5 ? good : info)(`Wall built: ${n} units locked. Transmission is now ${Math.round(S.wallFactor * 100)}% of the unshielded rate.`);
+        else {
+          const blocked = Math.round((1 - S.wallFactor) * 100), dF = Math.floor(avail() / SUPPLY_USE_PER_DAY), need = S.days.length;
+          const medal = blocked >= 60 && dF >= need ? "Gold" : blocked >= 45 && dF >= need - 1 ? "Silver" : "Bronze";
+          (medal === "Bronze" ? info : good)(`${medal} wall! It blocks ${blocked}% of the Sun's particles, and you have ${dF} of ${need} days of food and water left.`);
+        }
       } else {
         if (id === "heavy") { S.locked = 6; S.wallFactor = 0.4; good("You stacked a thick wall of water bags and food packs. The Sun's particles slow down a lot."); }
         if (id === "light") { S.locked = 1; S.wallFactor = 1.0; info("You kept almost everything to eat and drink. The wall is thin, so more radiation gets through."); }
@@ -1128,6 +1273,7 @@ function endingScreen() {
   S.inShelter = false; hudVisible(false);
   ["commander", "complete", "safe"].includes(S.ending) ? Sound.good() : Sound.bad();
   const stars = starsEarned();
+  const starCount = stars.filter(s => s.on).length; // earned stars always fill from the left
   show(`
   <section class="center">
     <div class="pill">${esc(S.storm.name)} · ${esc(S.storm.dateText)}</div>
@@ -1135,12 +1281,13 @@ function endingScreen() {
     <h1>${E.title}</h1>
     <p class="story" style="margin:0 auto 6px">Rank earned: <b style="color:var(--sun)">${E.rank}</b></p>
     <p class="story" style="margin:0 auto">${E.line}</p>
-    <div class="stars" aria-label="${stars.filter(s => s.on).length} of 3 stars">${stars.map(s => `<span class="${s.on ? "" : "star-off"}" title="${s.t}">⭐</span>`).join("")}</div>
+    <div class="stars" aria-label="${starCount} of 3 stars">${[0, 1, 2].map(i => `<span class="star ${i < starCount ? "on" : "star-off"}" style="--d:${(0.6 + i * 0.45).toFixed(2)}s">⭐</span>`).join("")}</div>
     <div class="small muted">${stars.map(s => (s.on ? "✅ " : "⬜ ") + s.t).join(" · ")}</div>
     <div class="crewrow" style="max-width:820px;margin:16px auto">${S.crew.map(c => { const b = band(c.dose); return `<div class="crewbox">${avatar(c, 46, "ring-" + b.k, c.dose / 100)}<div><div class="nm">${esc(c.id === "you" ? "You" : c.name.split(" ")[0])}</div><div class="dose band-${b.k}">☢ ${doseLabel(c.dose)} · ${b.t}</div></div></div>`; }).join("")}</div>
     <p class="muted small">Final dose numbers (from the base's records). ❤️ Crew health: ${Math.round(S.health)} · 📦 Food & water left: ${avail()}</p>
     <div class="btn-row"><button class="btn big primary" data-act="debrief">Mission debrief ▶</button></div>
   </section>`);
+  for (let i = 0; i < starCount; i++) later(() => Sound.tone(523 * Math.pow(1.26, i), 0.18, "triangle", 0.07), 600 + i * 450);
 }
 
 function realStormCard() {
@@ -1148,6 +1295,7 @@ function realStormCard() {
   return `<div class="panel" style="margin:14px 0">
     <h2>☀ The real storm you just survived</h2>
     ${s.realStory.map(p => `<p>${esc(p)}</p>`).join("")}
+    ${stormPics(s)}
     <div class="facts">
       <div class="fact"><div class="k">Flare</div><div class="v">${esc(s.flareClass || "None listed")}</div>${s.flarePeak ? `<div class="x">Peak: ${esc(s.flarePeak)}</div>` : ""}</div>
       <div class="fact"><div class="k">Storm cloud speed</div><div class="v">${fmt(s.cmeSpeed)} km/s</div></div>
@@ -1280,57 +1428,88 @@ function glossary() {
 /* =====================================================================
    LIVE MODE: today's Sun from NASA DONKI (api.nasa.gov)
    ===================================================================== */
-async function donki(endpoint, start, end, extra = "") {
+async function donki(endpoint, start, end, extra = "", tries = 2) {
   const url = `https://api.nasa.gov/DONKI/${endpoint}?startDate=${start}&endDate=${end}${extra}&api_key=${encodeURIComponent(NASA_API_KEY)}`;
-  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 9000);
-  try {
-    const res = await fetch(url, { signal: ctrl.signal });
-    if (!res.ok) throw new Error(endpoint + ": HTTP " + res.status);
-    const txt = await res.text();
-    return txt.trim() ? JSON.parse(txt) : [];
-  } finally { clearTimeout(to); }
+  let lastErr;
+  for (let n = 0; n < tries; n++) {
+    const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 25000); // DONKI can be slow
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      if (res.status === 429) { const e = new Error("rate limit"); e.rate = true; throw e; }
+      if (!res.ok) throw new Error(endpoint + ": HTTP " + res.status);
+      const txt = await res.text();
+      return txt.trim() ? JSON.parse(txt) : [];
+    } catch (err) {
+      lastErr = err;
+      if (err.rate) break;
+      if (n < tries - 1) await new Promise(r => setTimeout(r, 800));
+    } finally { clearTimeout(to); }
+  }
+  throw lastErr;
 }
 const flareRank = (c = "") => { const i = "ABCMX".indexOf((c[0] || "").toUpperCase()); return i < 0 ? -1 : i * 100 + (parseFloat(c.slice(1)) || 0); };
+const LIVE_CACHE_MS = 3 * 3600 * 1000; // reuse a live result for 3 hours so the free demo key isn't used up
 async function loadLive() {
-  show(`<section class="interlude"><div class="big-ic">NASA</div><h2>Contacting NASA…</h2><p class="story">Downloading the last 30 days of space weather from NASA's DONKI database.</p></section>`);
+  show(`<section class="interlude"><div class="big-ic">NASA</div><h2>Contacting NASA…</h2><p class="story">Downloading the last 30 days of space weather from NASA's DONKI database. This can take a few seconds.</p></section>`);
+  const cached = store.get("liveCache", null), cachedAt = store.get("liveCacheAt", 0);
+  if (cached && Date.now() - cachedAt < LIVE_CACHE_MS) { newGame(cached); alertScreen(); return; }
   try {
     const end = new Date(), start = new Date(end.getTime() - 30 * 86400000);
     const day = (d) => d.toISOString().slice(0, 10);
     const [s, e] = [day(start), day(end)];
-    const [analyses, flares, seps, storms] = await Promise.all([
-      donki("CMEAnalysis", s, e, "&mostAccurateOnly=true"), donki("FLR", s, e), donki("SEP", s, e), donki("GST", s, e)
-    ]);
-    const cme = (analyses || []).filter(a => a && a.speed).sort((a, b) => b.speed - a.speed)[0];
+    // The CME is the one thing we must have. Flares, particle events and Kp are nice extras.
+    const extras = Promise.allSettled([donki("FLR", s, e), donki("SEP", s, e), donki("GST", s, e)]);
+    let list = [];
+    try {
+      list = ((await donki("CMEAnalysis", s, e, "&mostAccurateOnly=true")) || []).filter(a => a && a.speed);
+    } catch (err) { if (err.rate) throw err; }
+    if (!list.length) { // fall back to the plain CME list, which carries its analyses inside
+      const cmes = (await donki("CME", s, e)) || [];
+      list = cmes.flatMap(c => (c.cmeAnalyses || []).filter(a => a && a.speed && a.isMostAccurate !== false)
+        .map(a => ({ ...a, startTime: c.startTime, associatedCMEID: c.activityID })));
+    }
+    const cme = list.sort((a, b) => b.speed - a.speed)[0];
     if (!cme) throw new Error("quiet");
-    const flare = (flares || []).filter(f => f && f.classType).sort((a, b) => flareRank(b.classType) - flareRank(a.classType))[0];
-    const kps = (storms || []).flatMap(g => (g.allKpIndex || []).map(k => k.kpIndex)).filter(x => typeof x === "number");
+    const [fr, sr, gr] = (await extras).map(r => r.status === "fulfilled" && Array.isArray(r.value) ? r.value : []);
+    const flare = fr.filter(f => f && f.classType).sort((a, b) => flareRank(b.classType) - flareRank(a.classType))[0];
+    const kps = gr.flatMap(g => (g.allKpIndex || []).map(k => k.kpIndex)).filter(x => typeof x === "number");
     const maxKp = kps.length ? Math.max(...kps) : 0;
-    const when = (cme.time21_5 || e).slice(0, 10);
+    const cmeTime = cme.time21_5 || cme.startTime || e;
+    const when = String(cmeTime).slice(0, 10);
+    // pictures: Sun at the flare peak, the cloud in the wide coronagraph (it is at 21.5 solar radii at time21_5)
+    const imgs = cme.time21_5
+      ? { sun: (flare && flare.peakTime) || cme.time21_5, cme: cme.time21_5, cam: "c3" }
+      : { sun: (flare && flare.peakTime) || cmeTime, cme: new Date(new Date(cmeTime).getTime() + 30 * 60000).toISOString(), cam: "c2" };
     const ev = {
-      id: "live", live: true, name: "Today's Sun", dateText: when,
+      id: "live", live: true, name: "Today's Sun", dateText: when, imgs,
       cmeSpeed: Math.round(cme.speed), cmeHalfAngle: typeof cme.halfAngle === "number" ? cme.halfAngle : null,
       flareClass: flare ? flare.classType : null, flarePeak: flare && flare.peakTime ? flare.peakTime.replace("T", " ").replace("Z", " UTC") : null,
-      hasSEP: (seps || []).length > 0, sepText: (seps || []).length ? `${seps.length} solar particle event(s) in DONKI in the last 30 days` : "No solar particle events in DONKI in the last 30 days",
+      hasSEP: sr.length > 0, sepText: sr.length ? `${sr.length} solar particle event(s) in DONKI in the last 30 days` : "No solar particle events in DONKI in the last 30 days",
       maxKp, kpText: maxKp ? `Highest Kp in the last 30 days: ${maxKp}` : "No geomagnetic storms in the last 30 days",
       travelHours: 150e6 / cme.speed / 3600, travelText: "Rough estimate from its speed (distance from the Sun ÷ speed)",
       record: "Live from NASA DONKI: " + (cme.associatedCMEID || "CME analysis"),
       realStory: [
         `This is live data: the fastest storm cloud NASA's DONKI recorded in the last 30 days (around ${when}) moved at about ${fmt(cme.speed)} km/s.`,
         flare ? `The strongest flare in that time was ${flare.classType}.` : "There were no flares listed in that time.",
-        (seps || []).length ? "DONKI also recorded a solar particle event (a radiation storm) in that time." : "No solar particle events were recorded in that time."
+        sr.length ? "DONKI also recorded a solar particle event (a radiation storm) in that time." : "No solar particle events were recorded in that time."
       ],
       sources: [{ label: "NASA DONKI space weather database", url: DONKI_URL }]
     };
-    store.set("liveCache", ev);
+    store.set("liveCache", ev); store.set("liveCacheAt", Date.now());
     newGame(ev); alertScreen();
   } catch (err) {
-    const cached = store.get("liveCache", null);
-    const quiet = String(err && err.message) === "quiet";
-    show(`<section class="interlude panel"><div class="big-ic">${quiet ? "😴" : "📵"}</div>
-      <h2>${quiet ? "The Sun has been quiet!" : "Couldn't reach NASA"}</h2>
-      <p class="story">${quiet ? "DONKI didn't record any big storm clouds in the last 30 days. That's good news for astronauts! Try one of the saved real storms instead."
-        : "The live NASA data didn't load (no internet, too many requests, or this page can't connect to outside sites). The saved storms are real NASA data too!"}</p>
+    const msg = String(err && err.message);
+    const kind = msg === "quiet" ? "quiet" : (err && err.rate) ? "rate" : "net";
+    const text = {
+      quiet: "DONKI didn't record any big storm clouds in the last 30 days. That's good news for astronauts! Try one of the saved real storms instead.",
+      rate: "NASA's free demo key has been used up for now (it only allows a few requests per hour). Wait a bit and try again, or put your own free key from api.nasa.gov into NASA_API_KEY at the top of app.js. The saved storms are real NASA data too!",
+      net: "The live NASA data didn't load. NASA's server may be slow or down, or your connection or browser blocked the request. The saved storms are real NASA data too!"
+    }[kind];
+    show(`<section class="interlude panel"><div class="big-ic">${kind === "quiet" ? "😴" : "📵"}</div>
+      <h2>${kind === "quiet" ? "The Sun has been quiet!" : "Couldn't reach NASA"}</h2>
+      <p class="story">${text}</p>
       <div class="btn-row">${cached ? `<button class="btn big primary" data-act="liveCached">Play the last live storm we saved (${esc(cached.dateText)})</button>` : ""}
+      ${kind !== "quiet" ? `<button class="btn" data-act="live">Try again</button>` : ""}
       <button class="btn ${cached ? "" : "big primary"}" data-act="select">Pick a saved storm</button></div></section>`);
   }
 }
@@ -1947,6 +2126,9 @@ const ACTIONS = {
       setTimeout(() => { modeSwitchTransitioning = false; }, fadeMs + 30);
     }, fadeMs);
   },
+  wbPlace(uid) { if (!WB || WB.placed.includes(uid) || !WB.units.some(u => u.id === uid)) return; WB.placed.push(uid); Sound.grab(); wbRender(); },
+  wbRemove(uid) { if (!WB) return; const i = WB.placed.indexOf(uid); if (i < 0) return; WB.placed.splice(i, 1); Sound.drop(); wbRender(); },
+  wallBuilt() { if (WB) choose("wall:" + WB.placed.length); },
   wallCommit() { const n = $("#wallN"); choose("wall:" + (n ? n.value : 0)); },
   powerCommit() { const g = (id) => { const el = document.getElementById(id); return el && el.checked ? 1 : 0; }; choose(`power:h${g("sysHeat")}r${g("sysRadio")}f${g("sysFreezer")}b${g("sysBatt")}`); },
   quit() {

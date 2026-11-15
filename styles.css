@@ -39,7 +39,7 @@ button{font:inherit;color:inherit}
 .btn.primary{background:var(--sun);border-color:#533b10;color:#1a1200}
 .btn.primary:hover{border-color:#533b10}
 .btn.big{font-size:.9rem;padding:.88em 1.4em}
-.btn.danger{background:linear-gradient(180deg,#ff6b6b,#e0383e);border-color:transparent;color:#fff}
+.btn.danger{background:var(--bad);border-color:#5a1216;color:#fff}
 .btn-row{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:18px 0}
 .panel{background:linear-gradient(180deg,var(--panel),var(--bg2));border:2px solid var(--line);border-radius:0;padding:20px;box-shadow:var(--shadow)}
 .muted{color:var(--muted)}
@@ -345,3 +345,60 @@ body > #modal .box {          /* modal content can be scroll‑able */
   overflow-y: auto;
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- wider storm cards + NASA pictures ---------- */
+.storm-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))}
+.storm-card{padding:16px}
+.storm-card,.storm-card *{word-break:normal;overflow-wrap:normal;hyphens:none}
+.storm-top{display:flex;gap:16px;align-items:flex-start}
+.storm-info{display:flex;flex-direction:column;gap:8px;min-width:0;flex:1}
+.storm-thumb{display:block;width:128px;height:128px;flex:none;border:3px solid var(--line);background:#000;object-fit:cover}
+.pic{display:block}
+.pic.failed{display:none}
+.pics{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px;margin:16px 0;text-align:left}
+.pics .pic img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:cover;border:3px solid var(--line);background:#000}
+.pics .cap{font-size:.85rem;color:var(--muted);margin-top:4px}
+@media (max-width:520px){.storm-top{flex-direction:column}.storm-thumb{width:100%;height:auto;aspect-ratio:1}}
+
+/* ---------- pixel icons (replace emoji) ---------- */
+.pxi{display:inline-block;position:relative;height:1em;line-height:0;vertical-align:-.14em}
+.pxi svg{display:block;height:1em;width:auto}
+.pxe{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.stars .star{display:inline-block}
+.stars .star.on{animation:starpop .55s var(--d,0s) cubic-bezier(.2,1.6,.4,1) both}
+.stars .star-off{opacity:.3;filter:grayscale(1)}
+@keyframes starpop{from{transform:scale(0) rotate(-70deg);opacity:0}to{transform:none;opacity:1}}
+.stars{display:flex;justify-content:center;gap:14px;letter-spacing:0}
+
+/* ---------- home page picture of the day ---------- */
+#apod{position:fixed;inset:0;z-index:-3;background:#000 center/cover no-repeat;opacity:0;transition:opacity 1s;pointer-events:none}
+#apod::after{content:"";position:absolute;inset:0;background:rgba(6,10,24,.5)}
+#sky{transition:opacity 1s}
+body.on-title.has-apod #apod{opacity:1}
+body.on-title.has-apod #sky{opacity:0}
+#apod-credit{position:fixed;left:12px;top:10px;z-index:6;max-width:min(320px,34vw);font-size:.7rem;color:var(--muted);background:rgba(6,10,24,.78);padding:.3em .6em;border:2px solid var(--line);display:none}
+body.on-title.has-apod #apod-credit{display:block}
+
+/* ---------- wall builder (junior) ---------- */
+.wb{display:flex;flex-direction:column;gap:12px}
+.wb-stage{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;background:#0a1028;border:3px solid var(--line);flex-wrap:wrap}
+.wb-stage small{display:block;text-align:center;font-family:var(--head);font-size:.55rem;color:var(--muted);margin-top:4px}
+.wb-sun{display:flex;flex-direction:column;align-items:center;font-size:3.2rem}
+.wb-rays{display:flex;flex-direction:column;justify-content:center;gap:16px;width:80px;min-height:60px;overflow:hidden}
+.wb-rays i{display:block;height:5px;width:20px;background:var(--sun);animation:wbray 1s linear infinite}
+.wb-rays i:nth-child(2n){animation-delay:-.4s}
+.wb-rays i:nth-child(3n){animation-delay:-.7s}
+.wb-rays.out i{background:var(--sun2)}
+@keyframes wbray{from{transform:translateX(-24px)}to{transform:translateX(84px)}}
+.wb-wall{display:grid;grid-template-columns:repeat(2,42px);gap:3px;padding:4px;border:3px solid var(--line);background:#06101a}
+.wb-cell{width:42px;height:42px;display:grid;place-items:center;font-size:1.5rem;border:3px solid #0a1028;border-radius:0;padding:0;cursor:pointer;color:var(--text)}
+.wb-cell.empty{border:2px dashed #26305a;background:transparent;cursor:default}
+.wb-cell.water{background:#2f5fb0}
+.wb-cell.food{background:#a1700f}
+.wb-cell.crate{background:#6b4423}
+.wb-cell:not(.empty):hover{border-color:var(--sun);transform:translateY(-2px)}
+.wb-crewgrid{display:grid;grid-template-columns:repeat(2,34px);gap:4px}
+.wb-pile{display:flex;flex-wrap:wrap;gap:6px;min-height:56px;padding:8px;border:2px dashed var(--line);align-items:center}
+.wb-meters{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.wb-m .lbl{display:flex;justify-content:space-between;gap:8px;font-size:.9rem;margin-bottom:3px}
+.wb-say{display:flex;gap:10px;align-items:center;background:var(--panel2);border:2px solid var(--line);padding:8px 12px;min-height:60px}

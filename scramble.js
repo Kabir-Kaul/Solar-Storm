@@ -224,7 +224,7 @@ const ScrambleWorld = (() => {
       g.fillStyle = near ? "rgba(255,210,63,.45)" : "rgba(255,176,32,.22)"; g.fill();
       g.strokeStyle = near ? "#ffd23f" : "rgba(255,176,32,.7)"; g.lineWidth = 2; g.stroke();
       g.font = "28px 'Segoe UI Emoji','Apple Color Emoji',serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "#fff";
-      g.fillText(it.icon, s.x, s.y + Math.sin(t * 3 + s.y) * 2);
+      Pixel.draw(g, it.icon, s.x - 16, s.y - 16 + Math.sin(t * 3 + s.y) * 2, 32);
       // bouncing arrow
       const by = s.y - 40 + Math.sin(t * 5 + s.x) * 4;
       g.fillStyle = "#ffd23f"; g.beginPath(); g.moveTo(s.x - 8, by - 8); g.lineTo(s.x + 8, by - 8); g.lineTo(s.x, by + 4); g.closePath(); g.fill();
@@ -331,7 +331,7 @@ const ScrambleWorld = (() => {
       },
       win() {
         if (!mg || mg.done) return; mg.done = true; Sound.good();
-        const p = $("#mgpanel"); if (p) p.insertAdjacentHTML("beforeend", `<div class="mgwin">✅ Done!</div>`);
+        const p = $("#mgpanel"); if (p) p.insertAdjacentHTML("beforeend", `<div class="mgwin"><span>✅ Done!</span></div>`);
         c.later(() => { closeMG(); collect(id); }, 800);
       }
     };
