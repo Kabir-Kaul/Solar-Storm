@@ -105,7 +105,7 @@ function hvUrl(kind, when, px = 600) {
   const scale = HV_SCALE[kind] * 600 / px;
   return `${HV}?date=${encodeURIComponent(date)}&imageScale=${scale}&layers=${encodeURIComponent(HV_LAYER[kind])}&x0=0&y0=0&width=${px}&height=${px}&display=true&watermark=true`;
 }
-const imgFail = `onerror="if(!this.dataset.r){this.dataset.r=1;this.src=this.src+'&r='+Date.now();return}var p=this.closest('.pic');if(p)p.classList.add('failed')"`;
+const imgFail = `onerror="var p=this.closest('.pic');if(p)p.classList.add('failed')"`;
 function stormTimes(s) { return s.imgs || STORM_IMG_TIMES[s.id] || null; }
 function stormThumb(s) {
   const t = stormTimes(s); if (!t) return "";
@@ -515,22 +515,31 @@ function updateHud() {
    HOME PAGE BACKGROUND: NASA's Astronomy Picture of the Day (home page only)
    ===================================================================== */
 let apodBusy = false, apodReady = false, apodFailAt = 0;
+const loadImg = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
 async function loadApod() {
   if (apodBusy || apodReady || Date.now() - apodFailAt < 5 * 60000) return;
   apodBusy = true;
   try {
-    let c = store.get("apod", null);
-    if (!c || Date.now() - c.at > 6 * 3600 * 1000) {       // reuse for 6 hours so the free key isn't used up
-      const res = await fetch(`https://api.nasa.gov/planetary/apod?thumbs=true&api_key=${encodeURIComponent(NASA_API_KEY)}`);
+    // Look back 10 days so a video/embed day (whose "image" is just a thumbnail or logo) never wins.
+    let c = store.get("apod3", null);
+    if (!c || Date.now() - c.at > 6 * 3600 * 1000) {      // reuse for 6 hours so the free key isn't used up
+      const day = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+      const res = await fetch(`https://api.nasa.gov/planetary/apod?start_date=${day(10)}&end_date=${day(0)}&api_key=${encodeURIComponent(NASA_API_KEY)}`);
       if (!res.ok) throw new Error("apod " + res.status);
-      c = { at: Date.now(), d: await res.json() }; store.set("apod", c);
+      const list = await res.json();
+      c = { at: Date.now(), list: (Array.isArray(list) ? list : [list]).filter(d => d && d.media_type === "image").reverse().slice(0, 5) };
+      store.set("apod3", c);
     }
-    const d = c.d, img = d.media_type === "image" ? d.url : d.thumbnail_url;   // some days are videos
-    if (!img) throw new Error("no image today");
-    await new Promise((ok, no) => { const i = new Image(); i.onload = ok; i.onerror = no; i.src = img; });
-    $("#apod").style.backgroundImage = `url("${img.replace(/"/g, "%22")}")`;
-    $("#apod-credit").innerHTML = `NASA Astronomy Picture of the Day: <a href="https://apod.nasa.gov/apod/astropix.html" target="_blank" rel="noopener">${esc(d.title || "today's image")}</a>${d.copyright ? " · © " + esc(String(d.copyright).replace(/\s+/g, " ").trim()) : ""}`;
-    document.body.classList.add("has-apod"); apodReady = true;
+    for (const d of c.list || []) {                        // newest photo first
+      for (const src of [d.hdurl, d.url].filter(Boolean)) {
+        let im; try { im = await loadImg(src); } catch (e) { continue; }
+        if (im.naturalWidth < 900 || im.naturalHeight < 500) continue;   // too small = logo or icon, skip it
+        $("#apod").style.backgroundImage = `url("${src.replace(/"/g, "%22")}")`;
+        $("#apod-credit").innerHTML = `NASA Astronomy Picture of the Day (${esc(d.date || "")}): <a href="https://apod.nasa.gov/apod/ap${esc((d.date || "").slice(2).replace(/-/g, ""))}.html" target="_blank" rel="noopener">${esc(d.title || "today's image")}</a>${d.copyright ? " · © " + esc(String(d.copyright).replace(/\s+/g, " ").trim()) : ""}`;
+        document.body.classList.add("has-apod"); apodReady = true; return;
+      }
+    }
+    throw new Error("no usable APOD image");
   } catch (e) { apodFailAt = Date.now(); }
   finally { apodBusy = false; }
 }
@@ -2140,12 +2149,7 @@ const ACTIONS = {
   sources: sourcesScreen,
   glossary,
   closeModal,
-  term(k) {
-    const entry = TERMS[k];
-    if (!entry) return;
-    const t = SR() ? entry.s : entry.j;   // pick the Flight Director or Junior wording
-    openModal(`<h2 id="modal-title">${t[0]}</h2><p>${t[1]}</p>`);
-  },
+  term(k) { const t = TERMS[k]; if (t) openModal(`<h2 id="modal-title">${t[0]}</h2><p>${t[1]}</p>`); },
   sound() { Sound.on = !Sound.on; store.set("sound", Sound.on); syncSoundBtn(); if (Sound.on) Sound.click(); },
   pick(id) { newGame(STORMS.find(s => s.id === id)); alertScreen(); },
   live: loadLive,

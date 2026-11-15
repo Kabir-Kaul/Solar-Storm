@@ -102,3 +102,15 @@
 .kit .ke{font-size:2.4rem}
 .kit .kc{font-family:var(--body);font-size:1.1rem;color:var(--good)}
 .kin{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;font-size:1.5rem}
+
+
+/* ---- Fix: crew names on the start screen stay inside their cards ----
+   The pixel font is ~1em per letter, so a long name like "Mei Lindqvist"
+   is wider than the card's text column. Each card now measures its own
+   width and sizes the name to fit what's left beside the avatar. */
+.crew-card{container-type:inline-size;overflow:hidden;min-width:0}
+.crew-card > :first-child{flex:0 0 auto}
+.crew-card > div{flex:1 1 0;min-width:0}
+.crew-card b{display:block;line-height:1.35;
+  font-size:clamp(.5rem,calc((100cqw - 84px) / 9.5),.85rem);
+  overflow-wrap:anywhere;word-break:normal;hyphens:none}
