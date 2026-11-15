@@ -325,7 +325,7 @@ body.mode-senior .opt[aria-pressed="true"]{border-color:var(--teal);background:#
   word-break: break-word;          /* (breaks long words) */
   overflow-wrap: anywhere;         /* (breaks at the best possible point) */
   hyphens: auto;                   /* (adds hyphenation if supported) */
-}make 
+}
 
 /* 2️⃣  Explicitly set `box-sizing` so padding/margin never inflate widths  */
 html { box-sizing: border-box; }
