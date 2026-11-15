@@ -588,5 +588,5 @@ const ScrambleWorld = (() => {
   return { begin, stop };
 })();
 
-/* Replace the old tap-to-grab scramble with the walkable one */
+/* Replace the old tap-to-grab scramble withthe walkable one */
 ACTIONS.scramble = ScrambleWorld.begin;
