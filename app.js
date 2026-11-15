@@ -2140,7 +2140,12 @@ const ACTIONS = {
   sources: sourcesScreen,
   glossary,
   closeModal,
-  term(k) { const t = TERMS[k]; if (t) openModal(`<h2 id="modal-title">${t[0]}</h2><p>${t[1]}</p>`); },
+  term(k) {
+  const entry = TERMS[k];
+  if (!entry) return;
+  const t = SR() ? entry.s : entry.j;   // pick the Flight Director or Junior wording
+  openModal(`<h2 id="modal-title">${t[0]}</h2><p>${t[1]}</p>`);
+},
   sound() { Sound.on = !Sound.on; store.set("sound", Sound.on); syncSoundBtn(); if (Sound.on) Sound.click(); },
   pick(id) { newGame(STORMS.find(s => s.id === id)); alertScreen(); },
   live: loadLive,
