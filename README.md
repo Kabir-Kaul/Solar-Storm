@@ -6,7 +6,7 @@ A browser game where you run a Moon base during a **real solar storm recorded by
 
 ## Play it
 
-Open [Solar-Storm](solar-scramble.earth) in any web browser. No download, install or account needed.
+Open [Solar-Storm](www.solar-scramble.earth) in any web browser. No download, install or account needed.
 
 ## Two age modes
 
