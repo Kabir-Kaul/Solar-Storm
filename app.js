@@ -105,7 +105,7 @@ function hvUrl(kind, when, px = 600) {
   const scale = HV_SCALE[kind] * 600 / px;
   return `${HV}?date=${encodeURIComponent(date)}&imageScale=${scale}&layers=${encodeURIComponent(HV_LAYER[kind])}&x0=0&y0=0&width=${px}&height=${px}&display=true&watermark=true`;
 }
-const imgFail = `onerror="var p=this.closest('.pic');if(p)p.classList.add('failed')"`;
+const imgFail = `onerror="if(!this.dataset.r){this.dataset.r=1;this.src=this.src+'&r='+Date.now();return}var p=this.closest('.pic');if(p)p.classList.add('failed')"`;
 function stormTimes(s) { return s.imgs || STORM_IMG_TIMES[s.id] || null; }
 function stormThumb(s) {
   const t = stormTimes(s); if (!t) return "";

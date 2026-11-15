@@ -15,11 +15,9 @@ body{overflow-x:hidden}
 #sky{
   position:fixed;
   inset:0;
-  z-index:-2;            /* layer 1 (back): sky */
+  z-index:-2;
   pointer-events:none;
-  /* New background handling – keeps the image's aspect ratio
-     and crops it if necessary, rather than stretching it. */
-  background:url('assets/sky.png') center/cover no-repeat;
+  background:#060a18;   /* was: url('assets/sky.png') center/cover no-repeat */
 }
 /* #app deliberately has NO z-index, so it does not form its own stacking context.
    That lets the moonscape (z-index:-1) sit above the sky (-2) but below all page content. */
@@ -354,7 +352,8 @@ body > #modal .box {          /* modal content can be scroll‑able */
 .storm-info{display:flex;flex-direction:column;gap:8px;min-width:0;flex:1}
 .storm-thumb{display:block;width:128px;height:128px;flex:none;border:3px solid var(--line);background:#000;object-fit:cover}
 .pic{display:block}
-.pic.failed{display:none}
+.pic.failed img{display:none}
+.pic.failed::before{content:"NASA image unavailable";display:grid;place-items:center;min-height:128px;border:3px solid var(--line);background:#06101a;color:var(--muted);font-size:.85rem;text-align:center;padding:8px}
 .pics{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px;margin:16px 0;text-align:left}
 .pics .pic img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:cover;border:3px solid var(--line);background:#000}
 .pics .cap{font-size:.85rem;color:var(--muted);margin-top:4px}
