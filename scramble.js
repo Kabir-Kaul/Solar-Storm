@@ -8,7 +8,7 @@
 
 /* How much longer the timer is than the real-data scramble time.
    Walking + mini-games need more than 20-60 s. Set to 1 for the original timing. */
-const SCRAMBLE_TIME_MULT = 4;
+const SCRAMBLE_TIME_MULT = 2.5;
 
 const ScrambleWorld = (() => {
   const W = 960, H = 600;
@@ -60,6 +60,7 @@ const ScrambleWorld = (() => {
   /* ---------- STATE ---------- */
   let cv, g, raf = null, keys = new Set(), player, start, total, lost, mg = null, lastT = 0, promptText = "", toastT = null;
   let keyDown = null, keyUp = null, blur = null;
+  let intro = false;   // true while the "how to move" popup is open (timer frozen)
 
   const inBag = (id) => S.bag.includes(id);
   const itemOf = (id) => ITEMS.find(x => x.id === id);
@@ -88,6 +89,19 @@ const ScrambleWorld = (() => {
           <div id="sw-prompt" class="sw-prompt" hidden></div>
           <div id="sw-toast" class="sw-toast"></div>
           <div id="sw-mg" class="sw-mg" hidden></div>
+          <div id="sw-intro" class="sw-mg">
+            <div class="mgpanel intro-pop">
+              <h3>How to move</h3>
+              <div class="keys" aria-hidden="true">
+                <div class="keyrow"><span class="keycap">W</span></div>
+                <div class="keyrow"><span class="keycap">A</span><span class="keycap">S</span><span class="keycap">D</span></div>
+              </div>
+              <p class="mgp">Walk with <b>W A S D</b> or the <b>arrow keys</b>.</p>
+              <p class="mgp">Press <span class="keycap wide">E</span> or <span class="keycap wide">Space</span> next to a glowing item to start its mini-game.</p>
+              <p class="mgp muted small">The timer starts when you press the button. When you're ready, walk to the bunker hatch at the right end of the hallway, or press <b>Seal the shelter</b>.</p>
+              <div class="btn-row"><button class="btn big primary" id="sw-go">Start the scramble!</button></div>
+            </div>
+          </div>
         </div>
         <aside class="panel bag">
           <h3>${SR() ? "🛒 Airlock cart" : "🎒 Your bag"}</h3>
@@ -101,10 +115,18 @@ const ScrambleWorld = (() => {
     cv = $("#sw-canvas"); g = cv.getContext("2d");
     player = { x: 480, y: 300, face: "d", moving: false };
     start = performance.now(); lastT = start;
+    intro = true;
+    $("#sw-go").onclick = startPlay;
+    $("#sw-go").focus();
     keyDown = (e) => {
       const k = e.code;
       const mv = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD"];
-      if (!alive() || mg || !$("#modal").hidden) return;
+      if (!alive() || !$("#modal").hidden) return;
+      if (intro) {
+        if (k === "Enter" || k === "Space" || k === "KeyE") { e.preventDefault(); startPlay(); }
+        return;
+      }
+      if (mg) return;
       if (mv.includes(k)) { keys.add(k); e.preventDefault(); }
       else if (k === "KeyE" || k === "Space" || k === "Enter") { e.preventDefault(); if (!e.repeat) interact(); }
     };
@@ -114,14 +136,22 @@ const ScrambleWorld = (() => {
     document.addEventListener("keyup", keyUp);
     window.addEventListener("blur", blur);
     $("#sw-bag").addEventListener("click", (e) => {
-      const b = e.target.closest("[data-drop]"); if (!b || mg) return;
+      const b = e.target.closest("[data-drop]"); if (!b || mg || intro) return;
       const id = b.dataset.drop, i = S.bag.indexOf(id);
       if (i >= 0) { S.bag.splice(i, 1); Sound.drop(); toast(`Put ${itemOf(id).name} back`); refreshBag(); }
     });
     refreshBag();
     raf = requestAnimationFrame(frame);
   }
+  function startPlay() {
+    if (!intro) return;
+    intro = false;
+    const o = $("#sw-intro"); if (o) o.remove();
+    Sound.click();
+    lastT = performance.now();
+  }
   function stop() {
+    intro = false;
     if (raf) cancelAnimationFrame(raf); raf = null;
     if (keyDown) { document.removeEventListener("keydown", keyDown); keyDown = null; }
     if (keyUp) { document.removeEventListener("keyup", keyUp); keyUp = null; }
@@ -135,7 +165,10 @@ const ScrambleWorld = (() => {
      ===================================================================== */
   function frame(now) {
     if (!alive()) { stop(); return; }
-    const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+    const delta = now - lastT;
+    const dt = Math.min(0.05, delta / 1000); lastT = now;
+    // while the controls popup is open, freeze the clock (push the start time forward)
+    if (intro) { start += delta; draw(now / 1000); raf = requestAnimationFrame(frame); return; }
     const remaining = total - (now - start) / 1000 - lost;
     S.timeLeft = Math.max(0, remaining);
     if (remaining <= 0) { stop(); seal(true); return; }
@@ -588,5 +621,5 @@ const ScrambleWorld = (() => {
   return { begin, stop };
 })();
 
-/* Replace the old tap-to-grab scramble withthe walkable one */
+/* Replace the old tap-to-grab scramble with the walkable one */
 ACTIONS.scramble = ScrambleWorld.begin;
