@@ -194,10 +194,6 @@ const ScrambleWorld = (() => {
   function draw(t) {
     g.clearRect(0, 0, W, H);
     g.fillStyle = "#070b1a"; g.fillRect(0, 0, W, H);
-    // hull plating
-    g.strokeStyle = "rgba(60,80,140,.18)"; g.lineWidth = 1;
-    for (let x = 0; x < W; x += 40) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
-    for (let y = 0; y < H; y += 40) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
     // corridor
     g.fillStyle = "#121a38"; g.fillRect(CORRIDOR.x, CORRIDOR.y, CORRIDOR.w, CORRIDOR.h);
     g.strokeStyle = "#ffb020"; g.setLineDash([14, 12]); g.lineWidth = 3;
@@ -205,9 +201,6 @@ const ScrambleWorld = (() => {
     // rooms
     ROOMS.forEach(r => {
       g.fillStyle = r.floor; g.fillRect(r.x, r.y, r.w, r.h);
-      g.strokeStyle = "rgba(255,255,255,.05)"; g.lineWidth = 1;
-      for (let x = r.x + 40; x < r.x + r.w; x += 40) { g.beginPath(); g.moveTo(x, r.y); g.lineTo(x, r.y + r.h); g.stroke(); }
-      for (let y = r.y + 40; y < r.y + r.h; y += 40) { g.beginPath(); g.moveTo(r.x, y); g.lineTo(r.x + r.w, y); g.stroke(); }
       decor(r, t);
       g.strokeStyle = "#2f3f7a"; g.lineWidth = 5; g.strokeRect(r.x, r.y, r.w, r.h);
       g.fillStyle = "#8fa0c8"; g.font = "9px 'Press Start 2P', monospace"; g.textAlign = "left"; g.textBaseline = "alphabetic";

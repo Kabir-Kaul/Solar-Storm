@@ -313,7 +313,7 @@ function avatar(c, size = 52, ringClass = "ring-unk", pct = 0) {
   </svg>`;
 }
 function moonscape() {
-  return `<svg class="moonscape" viewBox="0 0 1200 260" preserveAspectRatio="none" aria-hidden="true">
+  return `<svg class="moonscape" viewBox="0 0 1200 260" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
     <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a90a6"/><stop offset="1" stop-color="#3a3f55"/></linearGradient></defs>
     <circle cx="980" cy="70" r="46" fill="#2f6fd6"/><path d="M955 55c15-8 30 5 22 18s-26 10-30 2 0-16 8-20zm40 25c10-3 22 6 16 15s-20 4-16-15z" fill="#4fbf6a"/>
     <path d="M940 60a46 46 0 0 0 80 30" stroke="#fff" stroke-opacity=".35" stroke-width="5" fill="none"/>
