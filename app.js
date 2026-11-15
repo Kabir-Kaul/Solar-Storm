@@ -7,7 +7,7 @@
 
 /* ---------- CONFIG ---------- */
 // Free key from https://api.nasa.gov (DEMO_KEY works but has tight limits).
-const NASA_API_KEY = "DEMO_KEY";
+const NASA_API_KEY = "NBphrK9GPmzkrgMPTpbRLpJGc7MFcNPQHNPFdprP";
 const LIGHT_DELAY_MS = 1300;          // real Earth–Moon light time, about 1.3 s
 const SUPPLY_USE_PER_DAY = 2;
 const BAG_SLOTS = 6;
