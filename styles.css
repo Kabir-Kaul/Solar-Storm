@@ -15,9 +15,11 @@ body{overflow-x:hidden}
 #sky{
   position:fixed;
   inset:0;
-  z-index:-2;
+  z-index:-2;            /* layer 1 (back): sky */
   pointer-events:none;
-  background:#060a18;   /* was: url('assets/sky.png') center/cover no-repeat */
+  /* New background handling – keeps the image's aspect ratio
+     and crops it if necessary, rather than stretching it. */
+  background:url('assets/sky.png') center/cover no-repeat;
 }
 /* #app deliberately has NO z-index, so it does not form its own stacking context.
    That lets the moonscape (z-index:-1) sit above the sky (-2) but below all page content. */
@@ -320,26 +322,28 @@ body.mode-senior .opt[aria-pressed="true"]{border-color:var(--teal);background:#
 *,
 *::before,
 *::after {
-  box-sizing: border-box; /* include padding and border in element's total width/height */
-  word-break: normal;      /* break lines only at allowed break points (spaces, hyphens) */
-  overflow-wrap: break-word; /* only splits a word that can't fit on a line by itself */
-  hyphens: none;           /* don't automatically hyphenate words */
+  /* Prevent the default `white-space: nowrap` that can appear on buttons etc. */
+  white-space: normal !important;
+  /* Tell the browser that it is allowed to break words at any point */
+  word-break: break-word;          /* (breaks long words) */
+  overflow-wrap: anywhere;         /* (breaks at the best possible point) */
+  hyphens: auto;                   /* (adds hyphenation if supported) */
 }
-/* Text wrapping: break between words only. A word is split only if it
-   is longer than its whole container (last resort). */
+
+/* 2️⃣  Explicitly set `box-sizing` so padding/margin never inflate widths  */
 html { box-sizing: border-box; }
 *, *::before, *::after { box-sizing: inherit; }
 
-body {
-  word-break: normal;
-  overflow-wrap: break-word;   /* only splits a word that can't fit on a line by itself */
-  hyphens: none;
+/* 3️⃣  Allow flex items to shrink – prevents overflow when text grows  */
+[class*="flex"], [class*="grid"] {
+  min-width: 0;          /* important for flex‑ or grid‑children */
+  flex-shrink: 1;        /* allow shrinking */
 }
 
-/* let flex/grid children shrink instead of overflowing */
-[class*="flex"], [class*="grid"] { min-width: 0; }
-
-#modal .box { overflow-y: auto; }
+/* 4️⃣  Optional – a tiny visual hint for overflowing content   */
+body > #modal .box {          /* modal content can be scroll‑able */
+  overflow-y: auto;
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ---------- wider storm cards + NASA pictures ---------- */
@@ -350,8 +354,7 @@ body {
 .storm-info{display:flex;flex-direction:column;gap:8px;min-width:0;flex:1}
 .storm-thumb{display:block;width:128px;height:128px;flex:none;border:3px solid var(--line);background:#000;object-fit:cover}
 .pic{display:block}
-.pic.failed img{display:none}
-.pic.failed::before{content:"NASA image unavailable";display:grid;place-items:center;min-height:128px;border:3px solid var(--line);background:#06101a;color:var(--muted);font-size:.85rem;text-align:center;padding:8px}
+.pic.failed{display:none}
 .pics{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px;margin:16px 0;text-align:left}
 .pics .pic img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:cover;border:3px solid var(--line);background:#000}
 .pics .cap{font-size:.85rem;color:var(--muted);margin-top:4px}
@@ -399,3 +402,6 @@ body.on-title.has-apod #apod-credit{display:block}
 .wb-meters{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
 .wb-m .lbl{display:flex;justify-content:space-between;gap:8px;font-size:.9rem;margin-bottom:3px}
 .wb-say{display:flex;gap:10px;align-items:center;background:var(--panel2);border:2px solid var(--line);padding:8px 12px;min-height:60px}
+
+/* hide the moon terrain whenever a NASA photo is the home background */
+body.has-apod .moonscape{display:none}

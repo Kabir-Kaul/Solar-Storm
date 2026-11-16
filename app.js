@@ -516,31 +516,73 @@ function updateHud() {
    ===================================================================== */
 let apodBusy = false, apodReady = false, apodFailAt = 0;
 const loadImg = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
+function setHomeBg(src, creditHtml) {
+  $("#apod").style.backgroundImage = `url("${src.replace(/"/g, "%22")}")`;
+  $("#apod-credit").innerHTML = creditHtml;
+  document.body.classList.add("has-apod"); apodReady = true;
+}
+// NASA Image and Video Library (images-api.nasa.gov, no key needed): one fixed photo per calendar day.
+const HOME_TOPICS = ["nebula", "hubble galaxy", "james webb telescope", "aurora from space", "milky way", "supernova remnant", "saturn rings", "jupiter", "earth from space station", "solar eclipse", "mars surface", "star cluster"];
+async function nasaLibraryPick() {
+  const today = new Date().toISOString().slice(0, 10), doy = Math.floor((Date.parse(today) - Date.parse(today.slice(0, 4) + "-01-01")) / 86400000);
+  let hit = store.get("nasaImg1", null);
+  if (hit && hit.day === today) return hit;
+  const q = HOME_TOPICS[doy % HOME_TOPICS.length];
+  const res = await fetch(`https://images-api.nasa.gov/search?q=${encodeURIComponent(q)}&media_type=image&page_size=60`);
+  if (!res.ok) throw new Error("NASA library HTTP " + res.status);
+  const items = ((await res.json()).collection || {}).items || [];
+  for (let k = 0; k < Math.min(items.length, 12); k++) {
+    const it = items[(doy * 7 + k) % items.length], d = (it.data || [])[0], thumb = (it.links || [])[0] && it.links[0].href;
+    if (!d || !thumb) continue;
+    for (const src of [thumb.replace("~thumb.", "~large."), thumb.replace("~thumb.", "~medium.")]) {
+      let im; try { im = await loadImg(src); } catch (e) { continue; }
+      if (im.naturalWidth >= 900 && im.naturalHeight >= 500 && im.naturalWidth >= im.naturalHeight) {   // big and landscape only
+        hit = { day: today, src, title: d.title || "NASA image", id: d.nasa_id || "" }; store.set("nasaImg1", hit); return hit;
+      }
+    }
+  }
+  throw new Error("no suitable library image for " + q);
+}
 async function loadApod() {
   if (apodBusy || apodReady || Date.now() - apodFailAt < 5 * 60000) return;
   apodBusy = true;
+  const today = new Date().toISOString().slice(0, 10);
   try {
-    // Look back 10 days so a video/embed day (whose "image" is just a thumbnail or logo) never wins.
-    let c = store.get("apod3", null);
-    if (!c || Date.now() - c.at > 6 * 3600 * 1000) {      // reuse for 6 hours so the free key isn't used up
-      const day = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
-      const res = await fetch(`https://api.nasa.gov/planetary/apod?start_date=${day(10)}&end_date=${day(0)}&api_key=${encodeURIComponent(NASA_API_KEY)}`);
-      if (!res.ok) throw new Error("apod " + res.status);
-      const list = await res.json();
-      c = { at: Date.now(), list: (Array.isArray(list) ? list : [list]).filter(d => d && d.media_type === "image").reverse().slice(0, 5) };
-      store.set("apod3", c);
+    // 1) NASA's Astronomy Picture of the Day, if it is working. Skip logos/icons (small images) and video days.
+    let pick = store.get("apod4", null);
+    if (pick && Date.now() - pick.at > 6 * 3600 * 1000) pick = null;
+    if (!pick && store.get("apodBadDay", "") !== today) {     // if APOD only gave logos today, don't ask again until tomorrow
+      try {
+        const day = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+        const res = await fetch(`https://api.nasa.gov/planetary/apod?start_date=${day(10)}&end_date=${day(0)}&api_key=${encodeURIComponent(NASA_API_KEY)}`);
+        if (!res.ok) throw new Error("APOD HTTP " + res.status);
+        const raw = await res.json(), list = (Array.isArray(raw) ? raw : [raw]).filter(d => d && d.media_type === "image").reverse().slice(0, 6);
+        const tried = new Set();
+        find: for (const d of list) for (const src of [d.hdurl, d.url].filter(Boolean)) {
+          if (tried.has(src)) continue; tried.add(src);
+          let im; try { im = await loadImg(src); } catch (e) { continue; }
+          if (im.naturalWidth >= 900 && im.naturalHeight >= 500) { pick = { at: Date.now(), src, d }; break find; }
+        }
+        if (pick) store.set("apod4", pick); else { store.set("apodBadDay", today); console.warn("[APOD] returned no usable photo (only small images such as the NASA logo)"); }
+      } catch (e) { console.warn("[APOD] failed:", e && e.message); }
     }
-    for (const d of c.list || []) {                        // newest photo first
-      for (const src of [d.hdurl, d.url].filter(Boolean)) {
-        let im; try { im = await loadImg(src); } catch (e) { continue; }
-        if (im.naturalWidth < 900 || im.naturalHeight < 500) continue;   // too small = logo or icon, skip it
-        $("#apod").style.backgroundImage = `url("${src.replace(/"/g, "%22")}")`;
-        $("#apod-credit").innerHTML = `NASA Astronomy Picture of the Day (${esc(d.date || "")}): <a href="https://apod.nasa.gov/apod/ap${esc((d.date || "").slice(2).replace(/-/g, ""))}.html" target="_blank" rel="noopener">${esc(d.title || "today's image")}</a>${d.copyright ? " · © " + esc(String(d.copyright).replace(/\s+/g, " ").trim()) : ""}`;
-        document.body.classList.add("has-apod"); apodReady = true; return;
-      }
+    if (pick) {
+      const d = pick.d;
+      setHomeBg(pick.src, `NASA Astronomy Picture of the Day (${esc(d.date || "")}): <a href="https://apod.nasa.gov/apod/ap${esc((d.date || "").slice(2).replace(/-/g, ""))}.html" target="_blank" rel="noopener">${esc(d.title || "today's image")}</a>${d.copyright ? " · © " + esc(String(d.copyright).replace(/\s+/g, " ").trim()) : ""}`);
+      return;
     }
-    throw new Error("no usable APOD image");
-  } catch (e) { apodFailAt = Date.now(); }
+    // 2) A daily space photo from the NASA Image and Video Library
+    try {
+      const p = await nasaLibraryPick();
+      setHomeBg(p.src, `NASA image of the day: ${p.id ? `<a href="https://images.nasa.gov/details/${encodeURIComponent(p.id)}" target="_blank" rel="noopener">${esc(p.title)}</a>` : esc(p.title)} · NASA Image and Video Library`);
+      return;
+    } catch (e) { console.warn("[NASA library]", e && e.message); }
+    // 3) Last resort: a recent picture of the real Sun from NASA's SDO spacecraft (via Helioviewer.org)
+    const when = new Date(Math.floor(Date.now() / 3600000) * 3600000 - 2 * 3600000);
+    const sun = `${HV}?date=${encodeURIComponent(isoZ(when))}&imageScale=2.4&layers=${encodeURIComponent("[SDO,AIA,AIA,171,1,100]")}&x0=0&y0=0&width=1600&height=900&display=true&watermark=false`;
+    await loadImg(sun);
+    setHomeBg(sun, `The Sun right now, seen by NASA's SDO spacecraft (${esc(isoZ(when).replace("T", " ").replace("Z", " UTC"))}) · <a href="https://helioviewer.org" target="_blank" rel="noopener">Helioviewer.org</a>`);
+  } catch (e) { apodFailAt = Date.now(); console.warn("[home background] none available:", e && e.message); }
   finally { apodBusy = false; }
 }
 
